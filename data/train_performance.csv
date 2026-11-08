@@ -1,0 +1,26 @@
+train_no,train_name,train_type,total_observations,stations_covered,verified_arrival_count,verified_departure_count,avg_arrival_delay_min,avg_departure_delay_min,arrival_punctuality_pct,departure_punctuality_pct,severe_arrival_count,severe_departure_count
+3441,Jamalpur Jn. Dghr-jmp Pgr Spl,TOD,7807,49,0,0,,,,,0,0
+1024,Kop Pune Special,TOD,20078,21,0,0,,,,,0,0
+11026,Ami Pune Exp,MEX,21714,31,0,0,,,,,0,0
+1028,Gkp Dr Spl,TOD,20254,52,0,0,,,,,0,0
+7282,Jalna - Hazur Sahib Nanded Demu Special,EMU,10488,20,0,0,,,,,0,0
+1027,Dr Gorakhpur Spl,TOD,20725,34,0,0,,,,,0,0
+5579,Prnc Anvt Spl,TOD,7705,32,0,0,,,,,0,0
+6593,Chikkaballapur Ypr-cbp Mex Emu,MEX,9349,11,0,0,,,,,0,0
+7281,Purna - Jalna Demu Special,EMU,6510,16,0,0,,,,,0,0
+11039,Maharashtra Exp,MEX,61826,68,0,0,,,,,0,0
+1023,Pune Kop Special,TOD,19601,21,0,0,,,,,0,0
+11021,Dadar Ten Exp,MEX,28083,51,0,0,,,,,0,0
+1212,Nashik Road - Badnera Memu Special,MEMU,10581,18,0,0,,,,,0,0
+3547,Banka Jsme-baka Pgr Spl,TOD,1078,7,0,0,,,,,0,0
+11029,Koyna Express,MEX,50878,34,0,0,,,,,0,0
+1487,Hdp Harangul Exp,MAIL/EXPRESS,11495,14,0,0,,,,,0,0
+1025,Dr Ballia Spl,TOD,15023,31,0,0,,,,,0,0
+4779,Suratgarh Jn. Sgnr-sog Passenger,PAS,20306,13,0,0,,,,,0,0
+1026,Bui Dr Spl,TOD,13704,33,0,0,,,,,0,0
+3528,Asansol Junction Gkp Asn Esvn Spl,TOD,15254,33,0,0,,,,,0,0
+1211,Badnera - Nashik Road Memu Special,MEMU,10462,18,0,0,,,,,0,0
+11019,Bhubaneswar New Konark Express,MEX,56316,59,0,0,,,,,0,0
+11020,Chhatrapati Shivaji Maharaj Terminus Konark Express,MEX,39017,66,0,0,,,,,0,0
+11014,Lokmanya Tilak Terminus Cbe Ltt Exp,MEX,10337,57,0,0,,,,,0,0
+461,Badgam Andi-bdgm Spl,MEX,44,4,0,0,,,,,0,0

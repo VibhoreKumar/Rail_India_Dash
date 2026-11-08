@@ -1,0 +1,8 @@
+journey_year,total_observations,total_trains,total_stations,verified_arrival_count,verified_departure_count,avg_arrival_delay_min,avg_departure_delay_min,arrival_punctuality_pct,departure_punctuality_pct,severe_arrival_pct,severe_arrival_count,severe_departure_count,arrival_mismatch_count,departure_mismatch_count
+2021,7037,10,243,0,0,,,,,,0,0,0,0
+2024,117998,21,310,0,0,,,,,,0,0,0,0
+2020,10600,9,214,0,0,,,,,,0,0,0,0
+2026,101945,25,329,0,0,,,,,,0,0,0,0
+2023,61746,19,336,0,0,,,,,,0,0,0,0
+2022,50733,16,352,0,0,,,,,,0,0,0,0
+2025,138576,24,349,0,0,,,,,,0,0,0,0

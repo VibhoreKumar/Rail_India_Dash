@@ -1,0 +1,2 @@
+total_observations,total_trains,total_stations,avg_arrival_delay_min,avg_departure_delay_min,arrival_punctuality_pct,departure_punctuality_pct,severe_arrival_count,severe_departure_count,arrival_mismatch_count,departure_mismatch_count
+488635,25,467,,,,,0,0,0,0
