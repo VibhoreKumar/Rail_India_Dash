@@ -1,0 +1,1 @@
+Copy the six current Gold CSV exports into this folder as <dataset>.csv, or into a subfolder <dataset>/part-*.csv. Then run prepare_data.py.
