@@ -1,98 +1,815 @@
-const FILES=['overall_kpis','train_performance','station_performance','station_recovery','monthly_performance','yearly_performance'];
-const data={}, charts=[];let page='overview', train='all',year='all';
-const $=id=>document.getElementById(id);const n=v=>Number(v??0)||0;const fmt=v=>Number.isFinite(Number(v))?Number(v).toLocaleString('en-IN',{maximumFractionDigits:1}):'—';const pct=v=>Number.isFinite(Number(v))?`${fmt(v)}%`:'—';
-const field=(r,keys,defaultValue=null)=>{for(const k of keys)if(r?.[k]!==undefined&&r[k]!==null)return r[k];return defaultValue};
-const safe=s=>String(s??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function csv(text){const rows=text.trim().split(/\r?\n/).map(x=>x.split(','));return rows.slice(1).map(row=>Object.fromEntries(rows[0].map((k,i)=>[k,row[i]])));}
-async function load(){try{await Promise.all(FILES.map(async name=>{const response=await fetch(`data/${name}.json`);if(!response.ok)throw new Error(`${name}.json: HTTP ${response.status}. Run python3 prepare_data.py first.`);data[name]=await response.json();}));data.monthly=data.monthly_performance;const coverage=$('coverageText');if(coverage)coverage.textContent=`${(data.train_performance||[]).length.toLocaleString('en-IN')} trains · ${(data.station_performance||[]).length.toLocaleString('en-IN')} stations · 6 Gold datasets`;try{const audit=await fetch('data/validation_audit.json',{cache:'no-store'});data.validation_audit=audit.ok?await audit.json():[];}catch(_){data.validation_audit=[];}try{const geo=await fetch('data/network_geo.json',{cache:'no-store'});data.network_geo=geo.ok?await geo.json():null;}catch(_){data.network_geo=null;}$('dateRange').textContent='◷ '+[...new Set(data.monthly.map(x=>x.journey_year))].sort().join(' · ');const trains=data.train_performance||[];$('trainFilter').innerHTML='<option value="all">All trains</option>'+trains.map(r=>`<option value="${safe(r.train_no)}">${safe(r.train_name||r.train_no)}</option>`).join('');$('yearFilter').innerHTML='<option value="all">All years</option>'+[...new Set(data.monthly.map(r=>r.journey_year))].sort().map(y=>`<option>${safe(y)}</option>`).join('');render();}catch(e){$('dashboard').innerHTML='';$('error').hidden=false;$('error').textContent='Unable to load the analytics files. Run python3 prepare_data.py once, then start python3 -m http.server 8000 and refresh. Details: '+e.message;console.error(e);}}
-function filtered(name){let rows=data[name]||[];if(train!=='all'&&rows.some(r=>r.train_no!==undefined))rows=rows.filter(r=>String(r.train_no)===train);if(year!=='all'&&rows.some(r=>r.journey_year!==undefined))rows=rows.filter(r=>String(r.journey_year)===year);return rows;}
-function kpi(label,value,sub,icon='◈'){return `<article class="kpi"><div class="kpi-top"><span>${safe(label)}</span><span class="kpi-symbol">${icon}</span></div><div class="kpi-value">${safe(value)}</div><div class="kpi-sub">${safe(sub)}</div></article>`;}
-function panel(title,subtitle,content,tag='GOLD LAYER'){return `<section class="panel"><div class="panel-head"><div><h3>${safe(title)}</h3><p>${safe(subtitle)}</p></div><span class="tag">${safe(tag)}</span></div>${content}</section>`;}
-function chart(id,tall=''){return `<div class="chart ${tall}" id="${id}"></div>`;}
-function table(rows,cols){return `<div class="table-wrap"><table><thead><tr>${cols.map(c=>`<th>${safe(c[0])}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${safe(c[2]?c[2](r[c[1]],r):r[c[1]])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
-const base={backgroundColor:'transparent',textStyle:{fontFamily:'DM Sans',color:'#a5b5c8'},tooltip:{trigger:'axis',backgroundColor:'#182638',borderColor:'#38546a',textStyle:{color:'#eaf5ff'}},grid:{left:45,right:18,top:22,bottom:38,containLabel:false},xAxis:{axisLine:{lineStyle:{color:'#435167'}},axisLabel:{color:'#8194a9'},splitLine:{lineStyle:{color:'#253447',type:'dashed'}}},yAxis:{axisLine:{show:false},axisLabel:{color:'#8194a9'},splitLine:{lineStyle:{color:'#253447',type:'dashed'}}}};
-function draw(id,options){const el=$(id);if(!el||!window.echarts)return;const inst=echarts.init(el);inst.setOption({...base,...options});charts.push(inst);}
-function line(id,rows,keys){draw(id,{legend:{data:keys.map(x=>x[1]),textStyle:{color:'#93a6ba'},top:0},grid:{left:45,right:20,top:45,bottom:40},xAxis:{type:'category',data:rows.map(r=>r.year_month||r.journey_year),axisLabel:{color:'#8497ac',rotate:rows.length>18?45:0,interval:rows.length>30?Math.ceil(rows.length/12):'auto'},axisLine:{lineStyle:{color:'#435167'}}},yAxis:{type:'value',axisLabel:{color:'#8497ac'},splitLine:{lineStyle:{color:'#253447',type:'dashed'}}},series:keys.map(([k,label,color])=>({name:label,type:'line',smooth:true,symbol:'none',lineStyle:{width:2.5,color},itemStyle:{color},areaStyle:{opacity:.07,color},data:rows.map(r=>n(r[k]))}))});}
-function bars(id,rows,keyLabel,keyValue,horizontal=false){const labels=rows.map(r=>String(r[keyLabel]??'—'));const values=rows.map(r=>n(r[keyValue]));draw(id,{grid:{left:horizontal?115:45,right:18,top:15,bottom:horizontal?20:60},xAxis:horizontal?{type:'value',axisLabel:{color:'#8ca0b5'},splitLine:{lineStyle:{color:'#28374a'}}}:{type:'category',data:labels,axisLabel:{color:'#8ca0b5',rotate:35,overflow:'truncate',width:65},axisLine:{lineStyle:{color:'#405168'}}},yAxis:horizontal?{type:'category',data:labels,axisLabel:{color:'#a3b5c7',width:105,overflow:'truncate'},axisLine:{show:false}}:{type:'value',axisLabel:{color:'#8ca0b5'},splitLine:{lineStyle:{color:'#28374a'}}},series:[{type:'bar',data:values,barMaxWidth:27,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#248c9d'},{offset:1,color:'#61e2c9'}]),borderRadius:horizontal?[0,5,5,0]:[5,5,0,0]}}]});}
-function overview(){
- const all=data.overall_kpis?.[0]||{},t=filtered('train_performance'),m=filtered('monthly').filter(r=>year==='all'||String(r.journey_year)===year).sort((a,b)=>String(a.year_month).localeCompare(String(b.year_month)));
- const weighted=key=>t.length?t.reduce((a,r)=>a+n(r[key])*n(r.total_observations),0)/Math.max(1,t.reduce((a,r)=>a+n(r.total_observations),0)):null;
- const count=field(all,['total_observations','total_records','total_movements','total_clean_records'],null);
- const arr=field(all,['avg_arrival_delay_min'],weighted('avg_arrival_delay_min'));
- const punctual=field(all,['arrival_punctuality_pct'],weighted('arrival_punctuality_pct'));
- const ranked=[...t].sort((a,b)=>n(b.avg_arrival_delay_min)-n(a.avg_arrival_delay_min));
- const p=Math.max(0,Math.min(100,n(punctual)));
- $('dashboard').innerHTML=`<div class="overview-grid"><div class="left-stack"><div class="metric-grid">
- <div class="metric-card highlight"><div class="metric-label">Average arrival delay</div><div><div class="metric-value">${arr==null?'—':fmt(arr)+' min'}</div><div class="metric-note">Historical train performance</div></div></div>
- <div class="metric-card"><div class="metric-label">Arrival punctuality</div><div><div class="metric-value">${punctual==null?'—':pct(punctual)}</div><div class="metric-note">Gold analytics aggregate</div></div></div>
- <div class="metric-card"><div class="metric-label">Train services</div><div><div class="metric-value">${fmt(t.length)}</div><div class="metric-note">Analyzed services</div></div></div>
- <div class="metric-card"><div class="metric-label">Station coverage</div><div><div class="metric-value">${fmt(data.station_performance?.length||0)}</div><div class="metric-note">Station performance groups</div></div></div></div>
- <section class="panel status-panel"><div class="panel-head"><div><h3>Network status overview</h3><p>Arrival punctuality share</p></div><span class="tag">Historical</span></div><div class="status-bar"><div style="width:${p}%;background:#a7e936"></div><div style="width:${100-p}%;background:#7941f5"></div></div><div class="status-legend"><span><i class="dot" style="background:#a7e936"></i>Punctual · ${fmt(p)}%</span><span><i class="dot" style="background:#7941f5"></i>Other · ${fmt(100-p)}%</span></div></section>
- <section class="panel trend-panel"><div class="panel-head"><div><h3>Delay performance</h3><p>Monthly arrival and departure delay</p></div><span class="tag">Monthly ▾</span></div>${chart('monthlyChart')}</section>
- <div class="premium-banner"><div><b>RailPulse Intelligence</b><span>Databricks-powered operational analytics</span></div><div class="banner-mark">GOLD DATA ↗</div></div></div>
- <div class="right-stack"><section class="panel map-panel"><div id="indiaMap" class="map-canvas"></div><div class="map-head">Historical Network · Not Live Tracking</div><div class="map-caption"><span id="mapStatus">Railway infrastructure overlay · historical data. Export verified station coordinates to enable interactive station markers and train stop connections.</span></div></section>
- <section class="panel table-panel"><div class="panel-head"><div><h3>Train performance</h3><p>Services ranked by average arrival delay</p></div><span class="tag">All services</span></div>${table(ranked.slice(0,10),[['TRAIN','train_name'],['TRAIN NO.','train_no'],['OBSERVATIONS','total_observations',fmt],['AVG DELAY','avg_arrival_delay_min',v=>fmt(v)+' min'],['ON-TIME','arrival_punctuality_pct',pct]])}</section></div></div>
- <div class="bottom-grid">${panel('Train delay ranking','Average arrival delay · minutes',chart('trainChart','tall'),'PERFORMANCE')}${panel('Arrival punctuality','Comparison across train services',chart('punctualChart','tall'),'COMPARISON')}</div>`;
- line('monthlyChart',m,[['avg_arrival_delay_min','Arrival','#a7e936'],['avg_departure_delay_min','Departure','#9a72ff']]);
- bars('trainChart',[...ranked].reverse(),'train_name','avg_arrival_delay_min',true);
- bars('punctualChart',[...t].sort((a,b)=>n(a.arrival_punctuality_pct)-n(b.arrival_punctuality_pct)),'train_name','arrival_punctuality_pct',true);
- if(window.L){
-  const map=L.map('indiaMap',{zoomControl:false,scrollWheelZoom:false,preferCanvas:true}).setView([22.6,79.5],5);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:19}).addTo(map);
-  const tracks=L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',{attribution:'Railway infrastructure &copy; OpenRailwayMap / OpenStreetMap contributors',maxZoom:19,maxNativeZoom:18,subdomains:'abc',className:'railway-overlay',opacity:.92}).addTo(map);
-  L.control.layers(null,{'Railway infrastructure':tracks},{collapsed:true,position:'topright'}).addTo(map);
-  L.control.zoom({position:'topright'}).addTo(map);
-  const geo=data.network_geo;
-  const coords=(geo?.stations||[]).filter(x=>Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lng))&&Math.abs(Number(x.lat))<=90&&Math.abs(Number(x.lng))<=180);
-  const lookup=new Map(coords.map(x=>[String(x.station_code||'').trim().toUpperCase(),x]));
-  const perf=new Map((data.station_performance||[]).map(x=>[String(x.station_code||'').trim().toUpperCase(),x]));
-  const stations=L.layerGroup().addTo(map), routes=L.layerGroup().addTo(map);
-  const selected=String(train);
-  const selectedRoutes=(geo?.routes||[]).filter(r=>selected==='all'||String(r.train_no)===selected);
-  const stopSet=new Set(selectedRoutes.flatMap(r=>r.stops||[]).map(x=>String(x).trim().toUpperCase()));
-  let drawnRoutes=0;
-  for(const route of selectedRoutes){
-    const stops=(route.stops||[]).map(c=>lookup.get(String(c).trim().toUpperCase())).filter(Boolean);
-    if(stops.length<2)continue;
-    const line=L.polyline(stops.map(p=>[Number(p.lat),Number(p.lng)]),{color:'#b9f644',weight:selected==='all'?2.6:4,opacity:selected==='all'?.5:.95,dashArray:selected==='all'?'7 7':null,lineJoin:'round'}).addTo(routes);
-    line.bindTooltip(`${safe(route.train_name||route.train_no)} · historical station sequence (schematic connections)`,{sticky:true});drawnRoutes++;
-  }
-  const visible=selected==='all'?coords:coords.filter(x=>stopSet.has(String(x.station_code).trim().toUpperCase()));
-  for(const station of visible){
-    const code=String(station.station_code||'').trim().toUpperCase(),k=perf.get(code)||{};
-    const delay=k.avg_arrival_delay_min==null?'Not available':`${fmt(k.avg_arrival_delay_min)} min`;
-    const punctual=k.arrival_punctuality_pct==null?'Not available':pct(k.arrival_punctuality_pct);
-    const point=L.circleMarker([Number(station.lat),Number(station.lng)],{radius:5,color:'#0d1411',weight:1.8,fillColor:'#b9f644',fillOpacity:.96}).addTo(stations);
-    point.bindTooltip(`${safe(station.station_name||code)} (${safe(code)})`,{direction:'top'});
-    point.bindPopup(`<div class="station-popup"><b>${safe(station.station_name||code)}</b><span>${safe(code)} · Historical Gold analytics</span><div>Avg arrival delay <strong>${safe(delay)}</strong></div><div>Arrival punctuality <strong>${safe(punctual)}</strong></div></div>`);
-  }
-  L.control.layers(null,{'Station markers':stations,'Historical stop connections':routes},{collapsed:true,position:'bottomright'}).addTo(map);
-  const status=$('mapStatus');
-  if(status)status.textContent=coords.length?`${visible.length} verified station markers · ${drawnRoutes} historical train stop sequences · connecting lines are schematic, not exact track geometry.`:'Railway infrastructure overlay. Add data/network_geo.json exported from Silver to show verified station markers, performance and historical routes.';
-  if(selected!=='all'&&visible.length){map.fitBounds(L.latLngBounds(visible.map(x=>[Number(x.lat),Number(x.lng)])),{padding:[35,35],maxZoom:9});}
-  window.railMap=map;setTimeout(()=>map.invalidateSize(),120);
- }else{$('indiaMap').innerHTML='<div style="padding:130px 20px;text-align:center;color:#aaa">Map requires internet access to Leaflet.</div>'}
-}
-function trainsPage(){const t=filtered('train_performance');$('dashboard').innerHTML=`<div class="kpis">${kpi('TRAIN RECORDS',fmt(t.length),'Train performance groups')}${kpi('TOTAL OBSERVATIONS',fmt(t.reduce((a,r)=>a+n(r.total_observations),0)),'Movement observations')}${kpi('ARRIVAL VERIFIED',fmt(t.reduce((a,r)=>a+n(r.verified_arrival_count),0)),'Valid actual arrival times')}${kpi('SEVERE ARRIVALS',fmt(t.reduce((a,r)=>a+n(r.severe_arrival_count),0)),'Severe delay events')}</div><div class="grid2 grid-equal">${panel('Arrival delay by train','Minutes, ranked',chart('tDel','tall'))}${panel('Departure delay by train','Minutes, ranked',chart('tDep','tall'))}</div>${panel('Train performance detail','All Gold train performance metrics',table(t,[['TRAIN','train_name'],['TRAIN NO.','train_no'],['TYPE','train_type'],['OBSERVATIONS','total_observations',fmt],['ARRIVAL DELAY','avg_arrival_delay_min',fmt],['DEPARTURE DELAY','avg_departure_delay_min',fmt],['ARRIVAL ON-TIME','arrival_punctuality_pct',pct],['DEPARTURE ON-TIME','departure_punctuality_pct',pct]]))}`;bars('tDel',[...t].sort((a,b)=>n(a.avg_arrival_delay_min)-n(b.avg_arrival_delay_min)),'train_name','avg_arrival_delay_min',true);bars('tDep',[...t].sort((a,b)=>n(a.avg_departure_delay_min)-n(b.avg_departure_delay_min)),'train_name','avg_departure_delay_min',true);}
-function stationPage(){const s=filtered('station_performance'), names=Object.keys(s[0]||{}),name=names.find(k=>['station_name','station_code'].includes(k))||names[0],delay='avg_arrival_delay_min';$('dashboard').innerHTML=`<div class="kpis">${kpi('STATIONS',fmt(s.length),'Station performance groups')}${kpi('WITH ARRIVAL DATA',fmt(s.filter(r=>r[delay]!=null).length),'Station delay coverage')}${kpi('HIGHEST AVG DELAY',s.length?fmt(Math.max(...s.map(r=>n(r[delay]))))+' min':'—','Station-level maximum')}${kpi('NETWORK SCOPE','INDIA','Historical railway network')}</div><div class="grid2">${panel('Stations with highest delays','Average arrival delay · top 12',chart('stationDel','tall'))}${panel('Stations with lowest delays','Average arrival delay · bottom 12',chart('stationBest','tall'))}</div>${panel('Station performance table','Gold station aggregates',table([...s].sort((a,b)=>n(b[delay])-n(a[delay])).slice(0,100),[[name.toUpperCase(),name],['OBSERVATIONS','total_observations',fmt],['AVG ARRIVAL DELAY',delay,fmt],['PUNCTUALITY','arrival_punctuality_pct',pct]]))}`;bars('stationDel',[...s].sort((a,b)=>n(a[delay])-n(b[delay])).slice(-12),name,delay,true);bars('stationBest',[...s].sort((a,b)=>n(b[delay])-n(a[delay])).slice(-12),name,delay,true);}
-function recoveryPage(){const s=filtered('station_recovery'), keys=Object.keys(s[0]||{}),label=keys.find(k=>k==='station_name')||keys.find(k=>k==='station_code')||keys[0],metric=keys.find(k=>/recovery.*(pct|rate|percent)/i.test(k))||keys.find(k=>/recovery.*min/i.test(k))||keys.find(k=>/recover/i.test(k))||keys.find(k=>/delay/i.test(k));$('dashboard').innerHTML=`<div class="kpis">${kpi('STATION RECORDS',fmt(s.length),'Recovery analysis groups')}${kpi('RECOVERY METRIC',metric||'Not available','Gold schema field')}${kpi('SOURCE','GOLD','Databricks curated analytics')}${kpi('COVERAGE','HISTORICAL','Not live train tracking')}</div><div class="grid2">${panel('Station recovery comparison',metric||'No recovery metric available',metric?chart('recoveryChart','tall'):'<div class="empty">Recovery metric not found in dataset.</div>')}${panel('Recovery intelligence','Compare the station-level recovery indicators in your Gold dataset',table(s.slice(0,12),[[label.toUpperCase(),label],...(metric?[[metric.toUpperCase(),metric,fmt]]:[])]))}</div>${panel('Full recovery dataset','Available fields from your exported Gold table',table(s.slice(0,100),keys.slice(0,9).map(k=>[k.replaceAll('_',' ').toUpperCase(),k])))}`;if(metric)bars('recoveryChart',[...s].sort((a,b)=>n(a[metric])-n(b[metric])).slice(-12),label,metric,true);}
-function qualityPage(){const a=data.validation_audit||[],keys=Object.keys(a[0]||{});$('dashboard').innerHTML=`<div class="kpis">${kpi('AUDIT ENTRIES',fmt(a.length),'Gold validation records')}${kpi('DATASET STATUS','AUDITED','Validation output available')}${kpi('GOLD TABLES','6','Operational analytics exports')}${kpi('AUDIT SOURCE','DELTA','Databricks pipeline')}</div>${panel('Pipeline validation audit','Raw validation audit values, preserved from the Gold export',table(a.slice(0,100),keys.slice(0,12).map(k=>[k.replaceAll('_',' ').toUpperCase(),k])))}`;}
-function render(){charts.forEach(c=>c.dispose());charts.length=0;if(window.railMap){window.railMap.remove();window.railMap=null;}const titles={overview:['Operations overview','A unified view of train movement, punctuality, and network performance.'],trains:['Train intelligence','Explore train-level delay, punctuality, and movement metrics.'],stations:['Station analytics','Identify station-level bottlenecks and performance variation.'],recovery:['Delay recovery','Understand how delay recovery varies across the network.'],quality:['Data quality','Explore pipeline validation and audit outputs.']};$('pageTitle').innerHTML=titles[page][0]+'<span class="accent">.</span>';$('pageSubtitle').textContent=titles[page][1];if($('crumb'))$('crumb').textContent=page.toUpperCase();document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));({overview,trains:trainsPage,stations:stationPage,recovery:recoveryPage,quality:qualityPage}[page])();}
-document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;render();window.scrollTo(0,0)}));$('trainFilter').addEventListener('change',e=>{train=e.target.value;render()});$('yearFilter').addEventListener('change',e=>{year=e.target.value;render()});$('resetFilters').addEventListener('click',()=>{train=year='all';$('trainFilter').value='all';$('yearFilter').value='all';render()});window.addEventListener('resize',()=>charts.forEach(c=>c.resize()));load();
 
-// Download the selected analytical view, using the same filtered Gold data powering the tables.
-function csvEscape(value){
-  const str=String(value??'');
-  return /[",\r\n]/.test(str)?'"'+str.replace(/"/g,'""')+'"':str;
+const DATASETS = [
+  "overall_kpis",
+  "train_performance",
+  "station_performance",
+  "station_recovery",
+  "monthly_performance",
+  "yearly_performance"
+];
+
+const data = {};
+let currentPage = "overview";
+let selectedTrain = "all";
+let selectedYear = "all";
+let activeCharts = [];
+let activeMap = null;
+
+const $ = id => document.getElementById(id);
+
+const number = value =>
+  value === null || value === undefined || value === ""
+    ? null
+    : Number.isFinite(Number(value))
+      ? Number(value)
+      : null;
+
+const format = value => {
+  const n = number(value);
+  return n === null
+    ? "Not available"
+    : n.toLocaleString("en-IN", { maximumFractionDigits: 1 });
+};
+
+const percent = value => {
+  const n = number(value);
+  return n === null ? "Not available" : `${format(n)}%`;
+};
+
+const escapeHTML = value =>
+  String(value ?? "—").replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+
+const sum = (rows, key) =>
+  rows.reduce((total, row) => total + (number(row[key]) ?? 0), 0);
+
+const hasMetric = (rows, key) =>
+  rows.some(row => number(row[key]) !== null);
+
+function showNotice(message) {
+  $("notice").hidden = false;
+  $("notice").textContent = message;
 }
-document.getElementById('exportView')?.addEventListener('click',()=>{
-  const dataset={overview:'overall_kpis',trains:'train_performance',stations:'station_performance',recovery:'station_recovery',quality:'validation_audit'}[page]||'overall_kpis';
-  const rows=dataset==='overall_kpis'?(data[dataset]||[]):filtered(dataset);
-  if(!rows.length){alert('No records are available to export for this view.');return;}
-  const columns=[...new Set(rows.flatMap(Object.keys))];
-  const contents=[columns.map(csvEscape).join(','),...rows.map(row=>columns.map(col=>csvEscape(row[col])).join(','))].join('\r\n');
-  const blob=new Blob(['\ufeff'+contents],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`railpulse_${dataset}.csv`;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+
+function clearNotice() {
+  $("notice").hidden = true;
+}
+
+async function loadData() {
+  try {
+    await Promise.all(DATASETS.map(async name => {
+      const response = await fetch(`data/${name}.json`);
+
+      if (!response.ok) {
+        throw new Error(`Unable to load ${name}.json`);
+      }
+
+      data[name] = await response.json();
+    }));
+
+    for (const optional of [
+      "network_geo",
+      "validation_audit",
+      "train_year_performance"
+    ]) {
+      try {
+        const response = await fetch(`data/${optional}.json`);
+        data[optional] = response.ok
+          ? await response.json()
+          : optional === "network_geo" ? null : [];
+      } catch {
+        data[optional] =
+          optional === "network_geo" ? null : [];
+      }
+    }
+
+    populateFilters();
+    render();
+
+  } catch (error) {
+    console.error(error);
+    showNotice(
+      `${error.message}. Generate the Gold JSON files using prepare_data.py.`
+    );
+    $("dashboard").innerHTML =
+      `<div class="empty">Dashboard data could not be loaded.</div>`;
+  }
+}
+
+function populateFilters() {
+  const trains = data.train_performance || [];
+  const years = [...new Set(
+    (data.yearly_performance || []).map(row => row.journey_year)
+  )].sort();
+
+  $("trainFilter").innerHTML =
+    `<option value="all">All trains</option>` +
+    trains.map(row => `
+      <option value="${escapeHTML(row.train_no)}">
+        ${escapeHTML(row.train_name || row.train_no)}
+      </option>
+    `).join("");
+
+  $("yearFilter").innerHTML =
+    `<option value="all">All years</option>` +
+    years.map(year => `
+      <option value="${escapeHTML(year)}">${escapeHTML(year)}</option>
+    `).join("");
+}
+
+function rowsFor(dataset) {
+  let rows = data[dataset] || [];
+
+  if (selectedTrain !== "all") {
+    if (dataset === "train_year_performance") {
+      rows = rows.filter(
+        row => String(row.train_no) === selectedTrain
+      );
+    } else if (dataset === "train_performance") {
+      rows = rows.filter(
+        row => String(row.train_no) === selectedTrain
+      );
+    }
+  }
+
+  if (selectedYear !== "all") {
+    if (dataset === "monthly_performance" ||
+        dataset === "yearly_performance" ||
+        dataset === "train_year_performance") {
+      rows = rows.filter(
+        row => String(row.journey_year) === selectedYear
+      );
+    }
+  }
+
+  return rows;
+}
+
+function kpi(label, value, subtitle, featured = false) {
+  return `
+    <article class="kpi ${featured ? "featured" : ""}">
+      <div class="kpi-label">${escapeHTML(label)}</div>
+      <div class="kpi-value">${escapeHTML(value)}</div>
+      <div class="kpi-subtitle">${escapeHTML(subtitle)}</div>
+    </article>
+  `;
+}
+
+function panel(title, subtitle, content, tag = "GOLD") {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>${escapeHTML(title)}</h3>
+          <p>${escapeHTML(subtitle)}</p>
+        </div>
+        <span class="panel-tag">${escapeHTML(tag)}</span>
+      </div>
+      ${content}
+    </section>
+  `;
+}
+
+function chart(id, tall = false) {
+  return `<div id="${id}" class="chart ${tall ? "tall" : ""}"></div>`;
+}
+
+function table(rows, columns) {
+  if (!rows.length) {
+    return `<div class="empty">No records available.</div>`;
+  }
+
+  return `
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            ${columns.map(col => `<th>${escapeHTML(col[0])}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              ${columns.map(([label, key, formatter]) => `
+                <td>${escapeHTML(
+                  formatter ? formatter(row[key]) : row[key]
+                )}</td>
+              `).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+const COLORS = {
+  green: "#21765C",
+  forest: "#163D31",
+  mint: "#82B5A0",
+  orange: "#C98B56"
+};
+
+function drawChart(id, options) {
+  const element = $(id);
+  if (!element || !window.echarts) return;
+
+  const instance = echarts.init(element);
+  instance.setOption(options);
+  activeCharts.push(instance);
+}
+
+function lineChart(id, rows, metrics) {
+  const valid = rows.filter(row =>
+    metrics.some(([key]) => number(row[key]) !== null)
+  );
+
+  if (!valid.length) {
+    $(id).innerHTML =
+      `<div class="empty">No verified delay metrics available.</div>`;
+    return;
+  }
+
+  drawChart(id, {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 55, right: 25, top: 55, bottom: 65 },
+    xAxis: {
+      type: "category",
+      data: valid.map(row => row.year_month || row.journey_year),
+      axisLabel: { rotate: 35, color: "#718379" }
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: "#718379" },
+      splitLine: { lineStyle: { color: "#E5ECE5" } }
+    },
+    series: metrics.map(([key, label, color]) => ({
+      name: label,
+      type: "line",
+      smooth: true,
+      symbol: "circle",
+      symbolSize: 5,
+      connectNulls: false,
+      itemStyle: { color },
+      data: valid.map(row => number(row[key]))
+    }))
+  });
+}
+
+function barChart(id, rows, labelKey, metricKey) {
+  const valid = rows
+    .filter(row => number(row[metricKey]) !== null)
+    .sort((a, b) => number(b[metricKey]) - number(a[metricKey]))
+    .slice(0, 12)
+    .reverse();
+
+  if (!valid.length) {
+    $(id).innerHTML =
+      `<div class="empty">No verified values available for this metric.</div>`;
+    return;
+  }
+
+  drawChart(id, {
+    tooltip: { trigger: "axis" },
+    grid: { left: 110, right: 35, top: 15, bottom: 35 },
+    xAxis: {
+      type: "value",
+      splitLine: { lineStyle: { color: "#E5ECE5" } }
+    },
+    yAxis: {
+      type: "category",
+      data: valid.map(row => row[labelKey]),
+      axisLabel: {
+        color: "#718379",
+        width: 100,
+        overflow: "truncate"
+      }
+    },
+    series: [{
+      type: "bar",
+      barMaxWidth: 22,
+      itemStyle: {
+        color: COLORS.green,
+        borderRadius: [0, 5, 5, 0]
+      },
+      data: valid.map(row => number(row[metricKey]))
+    }]
+  });
+}
+
+function renderOverview() {
+  const overall = data.overall_kpis?.[0] || {};
+  const trains = rowsFor("train_performance");
+  const monthly = rowsFor("monthly_performance")
+    .sort((a, b) => String(a.year_month).localeCompare(String(b.year_month)));
+
+  const yearly = rowsFor("yearly_performance")
+    .sort((a, b) => a.journey_year - b.journey_year);
+
+  $("dashboard").innerHTML = `
+    <div class="kpi-grid">
+      ${kpi(
+        "Total Observations",
+        format(overall.total_observations),
+        "Historical movement records",
+        true
+      )}
+      ${kpi(
+        "Train Services",
+        format(overall.total_trains),
+        "Distinct trains analyzed"
+      )}
+      ${kpi(
+        "Stations Covered",
+        format(overall.total_stations),
+        "Distinct railway stations"
+      )}
+      ${kpi(
+        "Average Arrival Delay",
+        number(overall.avg_arrival_delay_min) === null
+          ? "—"
+          : `${format(overall.avg_arrival_delay_min)} min`,
+        "Verified arrival observations"
+      )}
+    </div>
+
+    <div class="grid-two">
+      ${panel(
+        "Monthly Delay Trend",
+        "Historical arrival and departure delay",
+        chart("monthlyChart"),
+        "MONTHLY"
+      )}
+      ${panel(
+        "Yearly Observation Volume",
+        "Number of records processed each year",
+        chart("yearlyChart"),
+        "COVERAGE"
+      )}
+    </div>
+
+    <div class="grid-two">
+      ${panel(
+        "Train Delay Ranking",
+        "Average arrival delay by train",
+        chart("trainChart", true),
+        "TRAINS"
+      )}
+      ${panel(
+        "Station Delay Ranking",
+        "Average arrival delay by station",
+        chart("stationChart", true),
+        "STATIONS"
+      )}
+    </div>
+
+    ${panel(
+      "Indian Railway Network",
+      "Historical station markers and schematic train routes",
+      `<div id="railMap" class="map"></div>
+       <p style="color:#718379;font-size:11px">
+         Map connections represent station sequences, not exact railway tracks.
+         No live train positions are shown.
+       </p>`,
+      "NETWORK"
+    )}
+  `;
+
+  lineChart("monthlyChart", monthly, [
+    ["avg_arrival_delay_min", "Arrival Delay", COLORS.green],
+    ["avg_departure_delay_min", "Departure Delay", COLORS.orange]
+  ]);
+
+  barChart(
+    "yearlyChart",
+    yearly,
+    "journey_year",
+    "total_observations"
+  );
+
+  barChart(
+    "trainChart",
+    trains,
+    "train_name",
+    "avg_arrival_delay_min"
+  );
+
+  barChart(
+    "stationChart",
+    data.station_performance || [],
+    "station_code",
+    "avg_arrival_delay_min"
+  );
+
+  renderMap();
+}
+
+function renderMap() {
+  if (!window.L) {
+    $("railMap").innerHTML =
+      `<div class="empty">Map library unavailable.</div>`;
+    return;
+  }
+
+  const map = L.map("railMap", {
+    scrollWheelZoom: false
+  }).setView([22.6, 79.5], 5);
+
+  activeMap = map;
+
+  L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution: "&copy; OpenStreetMap contributors",
+      maxZoom: 19
+    }
+  ).addTo(map);
+
+  const railwayLayer = L.tileLayer(
+    "https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+    {
+      attribution: "&copy; OpenRailwayMap",
+      opacity: 0.7
+    }
+  ).addTo(map);
+
+  const geo = data.network_geo;
+
+  const stationsLayer = L.layerGroup().addTo(map);
+  const routesLayer = L.layerGroup().addTo(map);
+
+  L.control.layers(
+    { "Railway Infrastructure": railwayLayer },
+    {
+      "Station Markers": stationsLayer,
+      "Historical Routes": routesLayer
+    }
+  ).addTo(map);
+
+  if (!geo || !Array.isArray(geo.stations)) {
+    return;
+  }
+
+  const stationLookup = new Map();
+  const performanceLookup = new Map(
+    (data.station_performance || []).map(row => [
+      String(row.station_code).toUpperCase(),
+      row
+    ])
+  );
+
+  geo.stations.forEach(station => {
+    const lat = number(station.lat);
+    const lng = number(station.lng);
+
+    if (lat === null || lng === null ||
+        lat < 6 || lat > 38 || lng < 68 || lng > 98) {
+      return;
+    }
+
+    const code = String(station.station_code).toUpperCase();
+    stationLookup.set(code, station);
+
+    const performance = performanceLookup.get(code) || {};
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: 5,
+      color: COLORS.forest,
+      fillColor: COLORS.green,
+      fillOpacity: 0.9
+    }).addTo(stationsLayer);
+
+    marker.bindPopup(`
+      <strong>${escapeHTML(station.station_name || code)}</strong>
+      <p>Station: ${escapeHTML(code)}</p>
+      <p>Arrival delay:
+        ${escapeHTML(format(performance.avg_arrival_delay_min))}
+      </p>
+      <p>Punctuality:
+        ${escapeHTML(percent(performance.arrival_punctuality_pct))}
+      </p>
+    `);
+  });
+
+  (geo.routes || []).forEach(route => {
+    if (
+      selectedTrain !== "all" &&
+      String(route.train_no) !== selectedTrain
+    ) return;
+
+    const points = (route.stops || [])
+      .map(code => stationLookup.get(String(code).toUpperCase()))
+      .filter(Boolean)
+      .map(station => [number(station.lat), number(station.lng)]);
+
+    if (points.length < 2) return;
+
+    L.polyline(points, {
+      color: COLORS.green,
+      weight: 3,
+      opacity: 0.65,
+      dashArray: "7 6"
+    }).addTo(routesLayer);
+  });
+
+  setTimeout(() => map.invalidateSize(), 100);
+}
+
+function renderTrains() {
+  const rows = rowsFor("train_performance");
+
+  $("dashboard").innerHTML = `
+    <div class="kpi-grid">
+      ${kpi("Train Services", format(rows.length), "Selected train groups", true)}
+      ${kpi("Observations", format(sum(rows, "total_observations")), "Movement records")}
+      ${kpi("Verified Arrivals", format(sum(rows, "verified_arrival_count")), "Available actual arrivals")}
+      ${kpi("Severe Delays", format(sum(rows, "severe_arrival_count")), "Verified severe arrivals")}
+    </div>
+
+    <div class="grid-two">
+      ${panel("Arrival Delay by Train", "Average minutes", chart("trainArrival", true))}
+      ${panel("Departure Delay by Train", "Average minutes", chart("trainDeparture", true))}
+    </div>
+
+    ${panel(
+      "Train Performance Details",
+      "Historical Gold aggregates",
+      table(rows, [
+        ["TRAIN", "train_name"],
+        ["NUMBER", "train_no"],
+        ["TYPE", "train_type"],
+        ["OBSERVATIONS", "total_observations", format],
+        ["ARRIVAL DELAY", "avg_arrival_delay_min", format],
+        ["DEPARTURE DELAY", "avg_departure_delay_min", format],
+        ["ARRIVAL ON-TIME", "arrival_punctuality_pct", percent]
+      ])
+    )}
+  `;
+
+  barChart("trainArrival", rows, "train_name", "avg_arrival_delay_min");
+  barChart("trainDeparture", rows, "train_name", "avg_departure_delay_min");
+}
+
+function renderStations() {
+  const rows = data.station_performance || [];
+
+  $("dashboard").innerHTML = `
+    <div class="kpi-grid">
+      ${kpi("Stations", format(rows.length), "Historical station groups", true)}
+      ${kpi("Observations", format(sum(rows, "total_observations")), "Station movements")}
+      ${kpi(
+        "Delay Coverage",
+        format(rows.filter(row =>
+          number(row.avg_arrival_delay_min) !== null
+        ).length),
+        "Stations with verified delays"
+      )}
+      ${kpi("Data Source", "GOLD", "Databricks Delta analytics")}
+    </div>
+
+    ${panel(
+      "Highest Average Station Delays",
+      "Stations with available delay observations",
+      chart("stationDelays", true)
+    )}
+
+    ${panel(
+      "Station Performance",
+      "First 100 station records",
+      table(rows.slice(0, 100), [
+        ["STATION", "station_code"],
+        ["OBSERVATIONS", "total_observations", format],
+        ["TRAINS", "total_trains", format],
+        ["AVG DELAY", "avg_arrival_delay_min", format],
+        ["PUNCTUALITY", "arrival_punctuality_pct", percent]
+      ])
+    )}
+  `;
+
+  barChart("stationDelays", rows, "station_code", "avg_arrival_delay_min");
+}
+
+function renderRecovery() {
+  const rows = data.station_recovery || [];
+
+  $("dashboard").innerHTML = `
+    <div class="kpi-grid">
+      ${kpi("Stations Analyzed", format(rows.length), "Recovery groups", true)}
+      ${kpi("Verified Recovery", format(sum(rows, "verified_recovery_count")), "Comparable observations")}
+      ${kpi("Recovered Events", format(sum(rows, "recovered_count")), "Verified recovery events")}
+      ${kpi(
+        "Recovery Coverage",
+        format(rows.filter(row =>
+          number(row.recovery_pct) !== null
+        ).length),
+        "Stations with recovery metrics"
+      )}
+    </div>
+
+    ${panel(
+      "Recovery Performance",
+      "Station recovery percentage",
+      chart("recoveryChart", true)
+    )}
+
+    ${panel(
+      "Recovery Details",
+      "First 100 station recovery records",
+      table(rows.slice(0, 100), [
+        ["STATION", "station_code"],
+        ["OBSERVATIONS", "total_observations", format],
+        ["VERIFIED", "verified_recovery_count", format],
+        ["RECOVERED", "recovered_count", format],
+        ["AVG RECOVERY", "avg_recovery_min", format],
+        ["RECOVERY %", "recovery_pct", percent]
+      ])
+    )}
+  `;
+
+  barChart("recoveryChart", rows, "station_code", "recovery_pct");
+}
+
+function renderQuality() {
+  const audit = data.validation_audit || [];
+  const available = audit.length > 0;
+
+  const columns = available
+    ? Object.keys(audit[0]).slice(0, 12).map(key => [
+        key.replaceAll("_", " ").toUpperCase(),
+        key
+      ])
+    : [];
+
+  $("dashboard").innerHTML = `
+    <div class="kpi-grid">
+      ${kpi("Gold Datasets", "6", "Curated analytical datasets", true)}
+      ${kpi("Audit Records", format(audit.length), "Validation records loaded")}
+      ${kpi("Audit Status", available ? "Available" : "Missing", "Evidence status")}
+      ${kpi("Source", "Databricks", "Pipeline validation")}
+    </div>
+
+    ${available
+      ? panel(
+          "Pipeline Validation Audit",
+          "Exported Databricks validation records",
+          table(audit, columns),
+          "QUALITY"
+        )
+      : panel(
+          "Validation Audit Not Available",
+          "Additional Databricks export required",
+          `<div class="empty">
+            The file data/validation_audit.json is missing or empty.
+            Run the validation notebook and export its results.
+            No pipeline success status is assumed.
+          </div>`,
+          "ACTION REQUIRED"
+        )
+    }
+  `;
+}
+
+function render() {
+  activeCharts.forEach(chart => chart.dispose());
+  activeCharts = [];
+
+  if (activeMap) {
+    activeMap.remove();
+    activeMap = null;
+  }
+
+  const pages = {
+    overview: ["Operations Overview", "Historical railway performance and network intelligence."],
+    trains: ["Train Analytics", "Explore train-level operational performance."],
+    stations: ["Station Analytics", "Analyze station-level railway observations."],
+    recovery: ["Delay Recovery", "Explore verified recovery patterns."],
+    quality: ["Data Quality", "Pipeline validation and reliability reporting."]
+  };
+
+  $("pageTitle").textContent = pages[currentPage][0];
+  $("pageSubtitle").textContent = pages[currentPage][1];
+
+  document.querySelectorAll(".nav-link").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.page === currentPage
+    );
+  });
+
+  const renderers = {
+    overview: renderOverview,
+    trains: renderTrains,
+    stations: renderStations,
+    recovery: renderRecovery,
+    quality: renderQuality
+  };
+
+  renderers[currentPage]();
+
+  const trainSpecific = ["trains"].includes(currentPage);
+  const yearSpecific = ["overview"].includes(currentPage);
+
+  // A single year cannot filter all-time train aggregates.
+  $("yearFilter").disabled = !yearSpecific;
+  $("trainFilter").disabled = !trainSpecific && currentPage !== "overview";
+
+  if (currentPage === "overview" && selectedTrain !== "all") {
+    showNotice(
+      "Train selection affects the train ranking and map, but overall and monthly aggregates remain network-wide. Train-year Gold data is required for combined filtering."
+    );
+  } else if (currentPage === "overview" && selectedYear !== "all") {
+    showNotice(
+      "Year selection affects monthly and yearly charts. Overall and station KPIs remain all-time aggregates."
+    );
+  } else {
+    clearNotice();
+  }
+}
+
+function downloadCSV() {
+  const datasetByPage = {
+    overview: "overall_kpis",
+    trains: "train_performance",
+    stations: "station_performance",
+    recovery: "station_recovery",
+    quality: "validation_audit"
+  };
+
+  const dataset = datasetByPage[currentPage];
+  const rows = rowsFor(dataset);
+
+  if (!rows.length) {
+    alert("No data is available to export.");
+    return;
+  }
+
+  const columns = [...new Set(rows.flatMap(Object.keys))];
+
+  const csvEscape = value => {
+    const text = String(value ?? "");
+    return /[",\r\n]/.test(text)
+      ? `"${text.replace(/"/g, '""')}"`
+      : text;
+  };
+
+  const csv = [
+    columns.map(csvEscape).join(","),
+    ...rows.map(row =>
+      columns.map(column => csvEscape(row[column])).join(",")
+    )
+  ].join("\r\n");
+
+  const blob = new Blob(["\ufeff", csv], {
+    type: "text/csv;charset=utf-8"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `railvista_${dataset}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+document.querySelectorAll(".nav-link").forEach(button => {
+  button.addEventListener("click", () => {
+    currentPage = button.dataset.page;
+    render();
+    window.scrollTo(0, 0);
+  });
 });
+
+$("trainFilter").addEventListener("change", event => {
+  selectedTrain = event.target.value;
+  render();
+});
+
+$("yearFilter").addEventListener("change", event => {
+  selectedYear = event.target.value;
+  render();
+});
+
+$("resetBtn").addEventListener("click", () => {
+  selectedTrain = "all";
+  selectedYear = "all";
+  $("trainFilter").value = "all";
+  $("yearFilter").value = "all";
+  render();
+});
+
+$("exportBtn").addEventListener("click", downloadCSV);
+
+window.addEventListener("resize", () => {
+  activeCharts.forEach(chart => chart.resize());
+  if (activeMap) activeMap.invalidateSize();
+});
+
+loadData();

@@ -1,1 +1,2992 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RailPulse India — Railway Operations Intelligence</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="styles.css"></head><body><div class="shell"><header class="topbar"><div class="brand"><span class="brand-icon">↝</span><span>RailPulse<span class="brand-dot">.</span></span></div><nav id="nav" class="topnav"><button class="nav-item active" data-page="overview">Dashboard</button><button class="nav-item" data-page="trains">Trains</button><button class="nav-item" data-page="stations">Stations</button><button class="nav-item" data-page="recovery">Recovery</button><button class="nav-item" data-page="quality">Reports</button></nav><div class="top-right"><span class="live-chip"><span class="pulse-dot"></span> HISTORICAL DATA</span><button class="export-button" id="exportView" title="Download current view as CSV">↓ Export</button><span class="avatar">RP</span></div></header><div class="content"><div class="heading"><div><div class="eyebrow">INDIAN RAILWAYS / HISTORICAL OPERATIONS</div><h1 id="pageTitle">Operations overview<span class="accent">.</span></h1><p id="pageSubtitle">Railway delay and operational intelligence, powered by Databricks Gold.</p></div><span class="date-chip" id="dateRange">Loading data…</span></div><div class="trust-strip"><span><span class="trust-indicator"></span> DATA ENGINEERING / DATABRICKS</span><span id="coverageText">Six curated Gold datasets</span><span>NOT LIVE TRACKING</span></div><div id="error" class="error" hidden></div><div class="filters"><div class="filter-heading">⌕ &nbsp; EXPLORE THE NETWORK</div><label>Train<select id="trainFilter"><option value="all">All trains</option></select></label><label>Year<select id="yearFilter"><option value="all">All years</option></select></label><button id="resetFilters">↺ Reset</button></div><section id="dashboard"><div class="loading">Loading railway analytics…</div></section><footer><span class="footer-mark">RAILPULSE INDIA</span> <span>HISTORICAL ANALYTICS · DATABRICKS · DELTA LAKE</span></footer></div></div><script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script type="module" src="app.js"></script></body></html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17191d">
+<title>RailVista 3.0 | Railway Intelligence</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
+<style>
+:root {
+  color-scheme:dark;
+  --bg:#17191d;
+  --sidebar:#111317;
+  --surface:#202329;
+  --surface2:#272b32;
+  --surface3:#30353d;
+  --text:#f1f0eb;
+  --muted:#9298a2;
+  --line:#343941;
+  --accent:#e4a64b;
+  --accent2:#f0bd70;
+  --accent-soft:rgba(228,166,75,.13);
+  --green:#77b99b;
+  --red:#df8580;
+  --shadow:0 10px 35px rgba(0,0,0,.12);
+}
+body.light {
+  color-scheme:light;
+  --bg:#f3f3f0;
+  --sidebar:#202329;
+  --surface:#fff;
+  --surface2:#f7f6f2;
+  --surface3:#eeece6;
+  --text:#25282d;
+  --muted:#747b84;
+  --line:#e4e1d9;
+  --accent:#ad7020;
+  --accent2:#c28a3c;
+  --accent-soft:rgba(173,112,32,.11);
+  --green:#39815f;
+  --red:#b85d58;
+  --shadow:0 8px 28px rgba(35,35,30,.045);
+}
+* {box-sizing:border-box}
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font:14px "DM Sans",sans-serif;
+  transition:background .2s,color .2s;
+}
+button,input,select {font:inherit}
+button {cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:3px;
+}
+button:disabled {opacity:.4;cursor:not-allowed}
+.shell {display:flex;min-height:100vh}
+.sidebar {
+  width:250px;
+  flex-shrink:0;
+  background:var(--sidebar);
+  color:#f4f1e9;
+  padding:25px 16px;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+.brand {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 9px;
+  margin-bottom:42px;
+}
+.brand-mark {
+  width:43px;height:43px;
+  display:grid;place-items:center;
+  border-radius:12px;
+  background:var(--accent);
+  color:#17191d;
+  font:800 17px Manrope,sans-serif;
+}
+.brand strong {
+  font:800 21px Manrope,sans-serif;
+  letter-spacing:-.7px;
+}
+.brand small {
+  display:block;
+  color:#a5a7a8;
+  font-size:9px;
+  letter-spacing:1.5px;
+  margin-top:3px;
+}
+.nav-label {
+  font-size:9px;
+  letter-spacing:1.8px;
+  color:#858990;
+  padding:0 13px;
+  margin-bottom:11px;
+}
+nav {display:grid;gap:6px}
+.nav {
+  border:0;
+  border-radius:9px;
+  padding:13px;
+  background:transparent;
+  color:#b8bbc0;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  transition:.2s;
+}
+.nav:hover {background:#292d34;color:white}
+.nav.active {
+  background:rgba(228,166,75,.15);
+  color:#f2bd70;
+  font-weight:700;
+}
+.nav-icon {width:19px;text-align:center;font-size:16px}
+.sidebar-bottom {
+  margin-top:auto;
+  border-top:1px solid #34373c;
+  padding:18px 9px 0;
+  font-size:11px;
+  color:#a7abb0;
+  line-height:1.8;
+}
+.sidebar-bottom strong {color:#e8b66c}
+.main {
+  min-width:0;
+  flex:1;
+  max-width:1700px;
+  margin:0 auto;
+  padding:29px 34px;
+}
+.topbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:25px;
+}
+.heading h1 {
+  font:800 28px Manrope,sans-serif;
+  letter-spacing:-1px;
+  margin:6px 0;
+}
+.eyebrow {
+  color:var(--accent);
+  font-size:9px;
+  letter-spacing:2px;
+  font-weight:800;
+}
+.subtitle {margin:0;color:var(--muted);font-size:12px}
+.top-actions {
+  display:flex;
+  gap:9px;
+  align-items:center;
+}
+.icon-btn {
+  width:39px;height:39px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+}
+.icon-btn:hover {border-color:var(--accent)}
+.status {
+  padding:9px 13px;
+  border-radius:20px;
+  color:var(--green);
+  background:var(--surface2);
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.toolbar {
+  display:flex;
+  align-items:end;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:15px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  border-radius:13px;
+  margin-bottom:19px;
+}
+.field {
+  display:grid;
+  gap:6px;
+  color:var(--muted);
+  font-size:9px;
+  letter-spacing:.8px;
+  font-weight:800;
+}
+.field select {
+  min-width:145px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+}
+.btn {
+  border:1px solid var(--line);
+  background:var(--surface2);
+  color:var(--text);
+  border-radius:8px;
+  padding:10px 14px;
+  font-size:11px;
+  font-weight:700;
+}
+.btn:hover {border-color:var(--accent);color:var(--accent)}
+.btn.primary {
+  background:var(--accent);
+  color:#1b1b1b;
+  border-color:var(--accent);
+}
+.btn.primary:hover {background:var(--accent2)}
+.spacer {flex:1}
+.search-wrap {position:relative}
+.global-search {
+  width:240px;
+  padding:11px 13px 11px 34px;
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:9px;
+  color:var(--text);
+}
+.search-icon {
+  position:absolute;
+  left:12px;
+  top:9px;
+  color:var(--muted);
+}
+.search-results {
+  position:absolute;
+  z-index:30;
+  top:43px;
+  left:0;
+  width:min(350px,85vw);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:11px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.search-result {
+  display:block;
+  width:100%;
+  border:0;
+  border-bottom:1px solid var(--line);
+  background:transparent;
+  color:var(--text);
+  text-align:left;
+  padding:12px;
+}
+.search-result:hover {background:var(--surface2)}
+.search-result small {display:block;color:var(--muted);margin-top:4px}
+.kpis {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:17px;
+}
+.kpi {
+  min-width:0;
+  padding:19px;
+  border-radius:13px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);
+  position:relative;
+}
+.kpi.featured {border-top:2px solid var(--accent)}
+.kpi-top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  margin-bottom:16px;
+}
+.kpi-label {font-size:10px;color:var(--muted)}
+.kpi-icon {
+  width:32px;height:32px;
+  display:grid;place-items:center;
+  border-radius:9px;
+  background:var(--accent-soft);
+  color:var(--accent);
+  font-size:15px;
+}
+.kpi-value {
+  font:800 25px Manrope,sans-serif;
+  letter-spacing:-.7px;
+  overflow-wrap:anywhere;
+}
+.kpi-sub {font-size:10px;color:var(--muted);margin-top:8px}
+.info {
+  display:inline-grid;
+  place-items:center;
+  border:1px solid currentColor;
+  border-radius:50%;
+  width:15px;height:15px;
+  font-size:9px;
+  margin-left:4px;
+  cursor:help;
+}
+.panel {
+  min-width:0;
+  padding:20px;
+  margin-bottom:17px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  border-radius:13px;
+  box-shadow:var(--shadow);
+}
+.panel-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+.panel h3 {
+  font:700 14px Manrope,sans-serif;
+  margin:0 0 5px;
+}
+.panel-desc {font-size:10px;color:var(--muted);margin:0;line-height:1.6}
+.two {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.chart {height:310px;width:100%}
+.chart.tall {height:380px}
+.small-select {
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+  padding:8px;
+  font-size:10px;
+}
+.note {
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  background:var(--surface2);
+  color:var(--muted);
+  padding:13px 15px;
+  border-radius:8px;
+  line-height:1.8;
+  font-size:11px;
+  margin-bottom:17px;
+}
+.note.warn {border-left-color:var(--red)}
+.insights {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:17px;
+}
+.insight {
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:16px;
+}
+.insight-name {font-size:10px;color:var(--muted)}
+.insight-value {
+  font:800 21px Manrope,sans-serif;
+  margin:8px 0;
+}
+.insight-detail {font-size:10px;color:var(--muted);line-height:1.5}
+.table-tools {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:13px;
+}
+.table-search {
+  min-width:220px;
+  padding:10px 12px;
+  background:var(--surface2);
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+.table-meta {font-size:10px;color:var(--muted)}
+.table-scroll {overflow:auto}
+table {width:100%;border-collapse:collapse;font-size:11px}
+th {
+  padding:12px;
+  background:var(--surface2);
+  color:var(--accent);
+  text-align:left;
+  white-space:nowrap;
+  cursor:pointer;
+}
+th:hover {filter:brightness(1.12)}
+td {
+  padding:12px;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+tbody tr:hover {background:var(--surface2)}
+.row-link {
+  color:var(--accent);
+  border:0;
+  background:transparent;
+  padding:0;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  font-weight:700;
+}
+.pagination {
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:10px;
+  margin-top:14px;
+}
+.pagination span {font-size:10px;color:var(--muted)}
+.empty {
+  padding:36px 15px;
+  background:var(--surface2);
+  color:var(--muted);
+  border-radius:10px;
+  text-align:center;
+  line-height:1.8;
+}
+.empty strong {color:var(--text)}
+.flow {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+  padding:14px 0;
+}
+.flow-node {
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:14px 17px;
+  min-width:100px;
+  text-align:center;
+  font-weight:800;
+  color:var(--accent);
+}
+.flow-node small {
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:400;
+  margin-top:6px;
+}
+.flow-arrow {color:var(--accent);font-size:20px}
+.file-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.file-card {
+  padding:13px;
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:9px;
+  overflow-wrap:anywhere;
+}
+.file-card strong {font-size:10px}
+.file-card small {display:block;color:var(--muted);margin-top:7px}
+.file-card .ok {color:var(--green)}
+.file-card .bad {color:var(--red)}
+.customize {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.customize label {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  background:var(--surface2);
+  border-radius:8px;
+  font-size:10px;
+}
+.customize input {accent-color:var(--accent)}
+.kpi-drag {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:9px;
+  padding:9px 11px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface2);
+  font-size:10px;
+  cursor:grab;
+}
+.kpi-drag.dragging {opacity:.4}
+.detail-box {
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:16px;
+  margin-bottom:17px;
+}
+.detail-box h3 {margin:0 0 6px}
+.detail-box p {font-size:11px;color:var(--muted)}
+.export-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:13px 0;
+  border-bottom:1px solid var(--line);
+}
+.export-row:last-child {border:0}
+.export-row strong {font-size:11px}
+.export-row small {display:block;color:var(--muted);margin-top:4px}
+footer {
+  border-top:1px solid var(--line);
+  padding:18px 0;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color:var(--muted);
+  font-size:10px;
+}
+footer strong {color:var(--accent)}
+[hidden] {display:none!important}
+@media(max-width:1100px) {
+  .sidebar {width:215px}
+  .main {padding:23px 20px}
+  .kpis {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:780px) {
+  .shell {display:block}
+  .sidebar {
+    width:100%;
+    height:auto;
+    position:relative;
+    padding:13px;
+  }
+  .brand {margin-bottom:13px}
+  .nav-label,.sidebar-bottom {display:none}
+  nav {display:flex;overflow-x:auto}
+  .nav {white-space:nowrap;padding:11px}
+  .main {padding:18px 13px}
+  .two {grid-template-columns:1fr}
+  .topbar {align-items:flex-start}
+  .heading h1 {font-size:23px}
+  .global-search {width:180px}
+}
+@media(max-width:480px) {
+  .kpis,.file-grid {grid-template-columns:1fr}
+  .insights {grid-template-columns:1fr}
+  .topbar {flex-direction:column}
+  .top-actions {width:100%;justify-content:flex-start}
+  .global-search {width:100%}
+  .search-wrap {flex:1}
+  .toolbar {align-items:stretch}
+  .field,.field select {width:100%}
+  .chart {height:270px}
+  .chart.tall {height:330px}
+  footer {flex-direction:column}
+}
+</style>
+</head>
+
+<body>
+<div class="shell">
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">RV</div>
+    <div>
+      <strong>RailVista.</strong>
+      <small>RAILWAY INTELLIGENCE</small>
+    </div>
+  </div>
+
+  <div class="nav-label">WORKSPACE</div>
+  <nav aria-label="Main navigation">
+    <button class="nav active" data-page="overview">
+      <span class="nav-icon">◫</span> Overview
+    </button>
+    <button class="nav" data-page="trains">
+      <span class="nav-icon">▤</span> Train Analytics
+    </button>
+    <button class="nav" data-page="stations">
+      <span class="nav-icon">⌖</span> Station Analytics
+    </button>
+    <button class="nav" data-page="quality">
+      <span class="nav-icon">◇</span> Pipeline & Quality
+    </button>
+    <button class="nav" data-page="compare">
+      <span class="nav-icon">⇄</span> Year Comparison
+    </button>
+    <button class="nav" data-page="exports">
+      <span class="nav-icon">↓</span> Export Center
+    </button>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <strong>● HISTORICAL DATASET</strong>
+    <p>Databricks · PySpark · Delta Lake</p>
+    Gold-layer analytics<br>
+    No live train tracking
+  </div>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <div class="heading">
+      <div class="eyebrow">INDIAN RAILWAY OPERATIONS</div>
+      <h1 id="pageTitle">Operations Overview</h1>
+      <p class="subtitle" id="pageSubtitle">
+        Historical railway intelligence
+      </p>
+    </div>
+
+    <div class="top-actions">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="globalSearch" class="global-search"
+          type="search" placeholder="Search trains, stations..."
+          aria-label="Search trains and stations"
+          autocomplete="off">
+        <div id="searchResults" class="search-results" hidden></div>
+      </div>
+      <button class="icon-btn" id="themeBtn"
+        aria-label="Switch theme" title="Switch theme">☼</button>
+    </div>
+  </header>
+
+  <section class="toolbar" id="filterBar">
+    <label class="field" id="yearBox">
+      YEAR
+      <select id="yearFilter">
+        <option value="all">All years</option>
+      </select>
+    </label>
+
+    <label class="field" id="trainBox" hidden>
+      TRAIN
+      <select id="trainFilter">
+        <option value="all">All trains</option>
+      </select>
+    </label>
+
+    <button class="btn" id="resetBtn">Reset filters</button>
+    <button class="btn" id="saveFiltersBtn">Save filters</button>
+    <span class="spacer"></span>
+    <span class="status" id="status">Loading Gold exports...</span>
+  </section>
+
+  <section id="content" aria-live="polite" aria-busy="true">
+    <div class="empty">Loading RailVista...</div>
+  </section>
+
+  <footer>
+    <strong>RailVista 3.0 · Data Engineering Portfolio</strong>
+    <span>Historical Gold data · Not real-time</span>
+  </footer>
+</main>
+</div>
+
+<script>
+"use strict";
+
+// ========================================================
+// 1. CONFIGURATION
+// ========================================================
+
+const SOURCES = [
+  "overall_kpis",
+  "train_performance",
+  "station_performance",
+  "station_recovery",
+  "monthly_performance",
+  "yearly_performance"
+];
+
+const db = {};
+const $ = id => document.getElementById(id);
+
+const state = {
+  page:"overview",
+  year:"all",
+  train:"all",
+  yearA:"",
+  yearB:"",
+  topN:10,
+  search:"",
+  pageNumber:1,
+  pageSize:10,
+  sortKey:"",
+  ascending:false,
+  detail:null,
+  theme:"dark",
+  hiddenKpis:[],
+  kpiOrder:[
+    "observations",
+    "trains",
+    "stations",
+    "months"
+  ],
+  tableRows:[],
+  tableColumns:[],
+  tableSource:""
+};
+
+let charts=[];
+let dragSource=null;
+let sourceWarnings=[];
+let loadTimestamp=null;
+
+// ========================================================
+// 2. STORAGE
+// ========================================================
+
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key,value) {
+  try {
+    localStorage.setItem(key,value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadPreferences() {
+  const theme=storageGet("railvista_theme");
+  if (theme==="light" || theme==="dark") {
+    state.theme=theme;
+  }
+
+  try {
+    const hidden=JSON.parse(
+      storageGet("railvista_hidden_kpis")||"[]"
+    );
+    if (Array.isArray(hidden)) state.hiddenKpis=hidden;
+  } catch {}
+
+  try {
+    const order=JSON.parse(
+      storageGet("railvista_kpi_order")||"null"
+    );
+    if (
+      Array.isArray(order) &&
+      order.length===4 &&
+      order.every(item=>
+        ["observations","trains","stations","months"].includes(item)
+      )
+    ) state.kpiOrder=order;
+  } catch {}
+
+  try {
+    const filters=JSON.parse(
+      storageGet("railvista_filters")||"null"
+    );
+    if (filters && typeof filters==="object") {
+      state.year=String(filters.year||"all");
+      state.train=String(filters.train||"all");
+    }
+  } catch {}
+}
+
+function saveFilters() {
+  const ok=storageSet(
+    "railvista_filters",
+    JSON.stringify({
+      year:state.year,
+      train:state.train
+    })
+  );
+
+  alert(ok
+    ? "Filters saved in this browser."
+    : "Browser storage is unavailable."
+  );
+}
+
+// ========================================================
+// 3. SAFE DATA HELPERS
+// ========================================================
+
+function num(value) {
+  if (
+    value===null ||
+    value===undefined ||
+    value===""
+  ) return null;
+
+  const n=Number(value);
+  return Number.isFinite(n)?n:null;
+}
+
+function fmt(value,digits=1) {
+  const n=num(value);
+  return n===null
+    ? "—"
+    : n.toLocaleString("en-IN",{
+        maximumFractionDigits:digits
+      });
+}
+
+function pct(value) {
+  return num(value)===null
+    ? "—"
+    : fmt(value,1)+"%";
+}
+
+function esc(value) {
+  return String(value??"—").replace(
+    /[&<>"']/g,
+    ch=>({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#39;"
+    })[ch]
+  );
+}
+
+function sum(rows,key) {
+  if (!key) return null;
+  return rows.reduce(
+    (total,row)=>total+(num(row[key])??0),
+    0
+  );
+}
+
+function countAvailable(rows,key) {
+  if (!key) return null;
+  return rows.filter(row=>num(row[key])!==null).length;
+}
+
+function unique(rows,key) {
+  return new Set(
+    rows.map(row=>row[key]).filter(
+      value=>value!==null &&
+        value!==undefined &&
+        value!==""
+    )
+  ).size;
+}
+
+function rank(rows,key) {
+  if (!key) return [...rows];
+  return [...rows].sort(
+    (a,b)=>(num(b[key])??-Infinity)-
+            (num(a[key])??-Infinity)
+  );
+}
+
+function share(part,whole) {
+  if (num(whole)===null || whole===0 || num(part)===null) {
+    return null;
+  }
+  return part/whole*100;
+}
+
+function field(rows,candidates) {
+  return candidates.find(key=>
+    rows.some(row=>
+      Object.prototype.hasOwnProperty.call(row,key)
+    )
+  )||null;
+}
+
+function volumeField(rows) {
+  return field(rows,[
+    "total_observations",
+    "movement_count",
+    "total_movements",
+    "observation_count"
+  ]);
+}
+
+function yearRows() {
+  return db.yearly_performance||[];
+}
+
+function monthlyRows() {
+  return db.monthly_performance||[];
+}
+
+function allTrainRows() {
+  return db.train_performance||[];
+}
+
+function allStationRows() {
+  return db.station_performance||[];
+}
+
+function currentYearRows() {
+  return yearRows().filter(row=>
+    state.year==="all" ||
+    String(row.journey_year)===state.year
+  );
+}
+
+function currentMonthlyRows() {
+  return monthlyRows().filter(row=>
+    state.year==="all" ||
+    String(row.year_month||"").startsWith(state.year+"-")
+  );
+}
+
+function currentTrainRows() {
+  return allTrainRows().filter(row=>
+    state.train==="all" ||
+    String(row.train_no)===state.train
+  );
+}
+
+// ========================================================
+// 4. SCHEMA VALIDATION
+// ========================================================
+
+function validateSource(name,data) {
+  const issues=[];
+
+  if (!Array.isArray(data)) {
+    return {
+      valid:false,
+      rows:0,
+      issues:["Root JSON value must be an array."]
+    };
+  }
+
+  if (data.length===0) {
+    return {
+      valid:true,
+      rows:0,
+      issues:["Dataset is empty."]
+    };
+  }
+
+  const objectRows=data.filter(
+    row=>row!==null &&
+      typeof row==="object" &&
+      !Array.isArray(row)
+  );
+
+  if (objectRows.length!==data.length) {
+    issues.push(
+      `${data.length-objectRows.length} non-object rows found.`
+    );
+  }
+
+  if (!objectRows.length) {
+    return {
+      valid:false,
+      rows:data.length,
+      issues
+    };
+  }
+
+  const keys=new Set(
+    objectRows.flatMap(row=>Object.keys(row))
+  );
+
+  if (keys.size===0) {
+    issues.push("No object fields found.");
+  }
+
+  const required={
+    overall_kpis:["total_observations"],
+    train_performance:["train_no"],
+    station_performance:["station_code"],
+    station_recovery:["station_code"],
+    monthly_performance:["year_month"],
+    yearly_performance:["journey_year"]
+  };
+
+  const expected=required[name]||[];
+
+  expected.forEach(key=>{
+    if (!keys.has(key)) {
+      issues.push(
+        `Expected field "${key}" was not found.`
+      );
+    }
+  });
+
+  return {
+    valid:objectRows.length===data.length &&
+      issues.length===0,
+    rows:data.length,
+    issues,
+    fields:[...keys]
+  };
+}
+
+function validateAll() {
+  sourceWarnings=[];
+
+  SOURCES.forEach(name=>{
+    const result=validateSource(name,db[name]||[]);
+
+    if (!result.valid || result.issues.length) {
+      sourceWarnings.push({
+        source:name,
+        issues:result.issues
+      });
+    }
+  });
+}
+
+// ========================================================
+// 5. COMMON COMPONENTS
+// ========================================================
+
+function kpiCard(label,value,detail,icon,tip,id) {
+  return `
+    <article class="kpi"
+      draggable="true"
+      data-kpi="${esc(id)}">
+      <div class="kpi-top">
+        <div class="kpi-label">
+          ${esc(label)}
+          <span class="info" tabindex="0"
+            role="note" title="${esc(tip)}"
+            aria-label="${esc(tip)}">i</span>
+        </div>
+        <span class="kpi-icon">${icon}</span>
+      </div>
+      <div class="kpi-value">${esc(value)}</div>
+      <div class="kpi-sub">${esc(detail)}</div>
+    </article>
+  `;
+}
+
+function panel(title,description,body,extra="") {
+  return `
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>${esc(title)}</h3>
+          <p class="panel-desc">${esc(description)}</p>
+        </div>
+        ${extra}
+      </div>
+      ${body}
+    </section>
+  `;
+}
+
+function insight(label,value,detail) {
+  return `
+    <div class="insight">
+      <div class="insight-name">${esc(label)}</div>
+      <div class="insight-value">${esc(value)}</div>
+      <div class="insight-detail">${esc(detail)}</div>
+    </div>
+  `;
+}
+
+function chartBox(id,tall=false) {
+  return `<div id="${id}" class="chart ${tall?"tall":""}"
+    role="img" aria-label="${esc(id)} chart"></div>`;
+}
+
+function topSelect() {
+  return `
+    <select id="topN" class="small-select"
+      aria-label="Select ranking size">
+      <option value="5" ${state.topN===5?"selected":""}>Top 5</option>
+      <option value="10" ${state.topN===10?"selected":""}>Top 10</option>
+      <option value="20" ${state.topN===20?"selected":""}>Top 20</option>
+    </select>
+  `;
+}
+
+function bindTopSelect() {
+  const node=$("topN");
+  if (!node) return;
+
+  node.addEventListener("change",event=>{
+    state.topN=Number(event.target.value);
+    render();
+  });
+}
+
+function resetCharts() {
+  charts.forEach(chart=>{
+    try {chart.dispose()} catch {}
+  });
+  charts=[];
+}
+
+// ========================================================
+// 6. CHARTS
+// ========================================================
+
+function drawChart(id,rows,labelKey,valueKey,options={}) {
+  const node=$(id);
+  if (!node) return;
+
+  const valid=rows.filter(row=>
+    row[labelKey]!==null &&
+    row[labelKey]!==undefined &&
+    num(row[valueKey])!==null
+  );
+
+  if (!valid.length) {
+    node.innerHTML=`
+      <div class="empty">
+        <strong>Metric unavailable</strong><br>
+        No usable numeric values were found
+        for this chart in the selected Gold export.
+      </div>
+    `;
+    return;
+  }
+
+  if (!window.echarts) {
+    node.innerHTML=`
+      <div class="empty">
+        Chart library could not be loaded.
+        The underlying table data remains available.
+      </div>
+    `;
+    return;
+  }
+
+  const horizontal=!!options.horizontal;
+  const isLine=!!options.line;
+  const labels=valid.map(row=>String(row[labelKey]));
+  const values=valid.map(row=>num(row[valueKey]));
+
+  const dark=!document.body.classList.contains("light");
+  const axisColor=dark?"#a3a8b0":"#737983";
+  const splitColor=dark?"#343941":"#e8e5df";
+
+  const chart=echarts.init(node);
+  charts.push(chart);
+
+  chart.setOption({
+    animationDuration:450,
+    color:["#e4a64b"],
+    tooltip:{
+      trigger:"axis",
+      backgroundColor:dark?"#111317":"#272b32",
+      borderWidth:0,
+      textStyle:{color:"#fff"},
+      valueFormatter:value=>fmt(value,2)
+    },
+    grid:{
+      left:horizontal?8:43,
+      right:20,
+      top:18,
+      bottom:horizontal?12:60,
+      containLabel:true
+    },
+    xAxis:horizontal?{
+      type:"value",
+      axisLabel:{color:axisColor},
+      splitLine:{lineStyle:{color:splitColor}}
+    }:{
+      type:"category",
+      data:labels,
+      axisLabel:{
+        color:axisColor,
+        rotate:labels.length>7?35:0
+      },
+      axisLine:{lineStyle:{color:splitColor}}
+    },
+    yAxis:horizontal?{
+      type:"category",
+      data:labels,
+      axisLabel:{
+        color:axisColor,
+        width:105,
+        overflow:"truncate"
+      },
+      axisLine:{show:false}
+    }:{
+      type:"value",
+      axisLabel:{color:axisColor},
+      splitLine:{lineStyle:{color:splitColor}}
+    },
+    series:[{
+      type:isLine?"line":"bar",
+      data:values,
+      smooth:true,
+      symbolSize:7,
+      barMaxWidth:26,
+      itemStyle:{
+        color:"#e4a64b",
+        borderRadius:isLine?0:[0,5,5,0]
+      },
+      areaStyle:isLine
+        ? {color:"rgba(228,166,75,.10)"}
+        : undefined
+    }]
+  });
+
+  if (options.onClick) {
+    chart.on("click",params=>{
+      const row=valid[params.dataIndex];
+      if (row) options.onClick(row);
+    });
+  }
+
+  node.style.cursor=options.onClick?"pointer":"default";
+}
+
+// ========================================================
+// 7. CUSTOM KPI LAYOUT
+// ========================================================
+
+const KPI_DEFS={
+  observations:{
+    label:"Movement Observations",
+    icon:"▤",
+    tip:"Count supplied by the selected Gold summary."
+  },
+  trains:{
+    label:"Train Services",
+    icon:"🚆",
+    tip:"Distinct train count supplied by the Gold summary."
+  },
+  stations:{
+    label:"Stations Covered",
+    icon:"⌖",
+    tip:"Distinct station count supplied by the Gold summary."
+  },
+  months:{
+    label:"Months Covered",
+    icon:"▦",
+    tip:"Number of monthly Gold rows in the selected period."
+  }
+};
+
+function saveKpiLayout() {
+  storageSet(
+    "railvista_hidden_kpis",
+    JSON.stringify(state.hiddenKpis)
+  );
+  storageSet(
+    "railvista_kpi_order",
+    JSON.stringify(state.kpiOrder)
+  );
+}
+
+function kpiSettingsHTML() {
+  return `
+    ${panel(
+      "Customize Overview",
+      "Choose visible cards and drag cards to change their order",
+      `
+      <div class="customize">
+        ${state.kpiOrder.map(id=>`
+          <label>
+            <input type="checkbox"
+              data-kpi-toggle="${id}"
+              ${!state.hiddenKpis.includes(id)?"checked":""}>
+            ${esc(KPI_DEFS[id].label)}
+          </label>
+        `).join("")}
+      </div>
+      <div id="kpiOrderList">
+        ${state.kpiOrder.map(id=>`
+          <div class="kpi-drag" draggable="true"
+            data-kpi-order="${id}">
+            <span>⠿ &nbsp;${esc(KPI_DEFS[id].label)}</span>
+            <span>Drag to reorder</span>
+          </div>
+        `).join("")}
+      </div>
+      <button class="btn" id="resetKpiLayout"
+        style="margin-top:12px">Reset layout</button>
+      `
+    )}
+  `;
+}
+
+function bindKpiSettings() {
+  document.querySelectorAll("[data-kpi-toggle]")
+    .forEach(input=>{
+      input.addEventListener("change",()=>{
+        const id=input.dataset.kpiToggle;
+
+        if (input.checked) {
+          state.hiddenKpis=
+            state.hiddenKpis.filter(item=>item!==id);
+        } else if (!state.hiddenKpis.includes(id)) {
+          state.hiddenKpis.push(id);
+        }
+
+        saveKpiLayout();
+        render();
+      });
+    });
+
+  document.querySelectorAll("[data-kpi-order]")
+    .forEach(node=>{
+      node.addEventListener("dragstart",()=>{
+        dragSource=node.dataset.kpiOrder;
+        node.classList.add("dragging");
+      });
+
+      node.addEventListener("dragend",()=>{
+        node.classList.remove("dragging");
+      });
+
+      node.addEventListener("dragover",event=>{
+        event.preventDefault();
+      });
+
+      node.addEventListener("drop",event=>{
+        event.preventDefault();
+
+        const target=node.dataset.kpiOrder;
+        if (!dragSource || dragSource===target) return;
+
+        const order=state.kpiOrder.filter(
+          item=>item!==dragSource
+        );
+
+        const index=order.indexOf(target);
+        order.splice(index,0,dragSource);
+
+        state.kpiOrder=order;
+        dragSource=null;
+        saveKpiLayout();
+        render();
+      });
+    });
+
+  $("resetKpiLayout")?.addEventListener("click",()=>{
+    state.hiddenKpis=[];
+    state.kpiOrder=[
+      "observations","trains","stations","months"
+    ];
+    saveKpiLayout();
+    render();
+  });
+
+  document.querySelectorAll("[data-kpi]")
+    .forEach(node=>{
+      node.addEventListener("dragstart",()=>{
+        dragSource=node.dataset.kpi;
+        node.classList.add("dragging");
+      });
+
+      node.addEventListener("dragend",()=>{
+        node.classList.remove("dragging");
+      });
+
+      node.addEventListener("dragover",event=>{
+        event.preventDefault();
+      });
+
+      node.addEventListener("drop",event=>{
+        event.preventDefault();
+        const target=node.dataset.kpi;
+
+        if (!dragSource || dragSource===target) return;
+
+        const order=state.kpiOrder.filter(
+          item=>item!==dragSource
+        );
+
+        order.splice(order.indexOf(target),0,dragSource);
+        state.kpiOrder=order;
+        dragSource=null;
+        saveKpiLayout();
+        render();
+      });
+    });
+}
+
+// ========================================================
+// 8. TABLE ENGINE
+// ========================================================
+
+function setupTable(rows,columns,source) {
+  state.tableRows=rows;
+  state.tableColumns=columns;
+  state.tableSource=source;
+  state.search="";
+  state.pageNumber=1;
+  state.sortKey=columns[0]?.key||"";
+  state.ascending=true;
+}
+
+function tableHTML() {
+  return `
+    <div class="table-tools">
+      <input id="tableSearch" class="table-search"
+        type="search" placeholder="Search records..."
+        aria-label="Search table records">
+      <span class="table-meta" id="tableCount"></span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            ${state.tableColumns.map((col,index)=>`
+              <th data-col="${index}" tabindex="0"
+                role="button"
+                aria-label="Sort by ${esc(col.label)}">
+                ${esc(col.label)} ↕
+              </th>
+            `).join("")}
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button class="btn" id="prevPage">Previous</button>
+      <span id="pageInfo"></span>
+      <button class="btn" id="nextPage">Next</button>
+    </div>
+  `;
+}
+
+function sortedTableRows() {
+  const query=state.search.toLowerCase().trim();
+
+  const filtered=state.tableRows.filter(row=>
+    !query ||
+    state.tableColumns.some(col=>
+      String(row[col.key]??"")
+        .toLowerCase().includes(query)
+    )
+  );
+
+  return [...filtered].sort((a,b)=>{
+    const av=a[state.sortKey];
+    const bv=b[state.sortKey];
+    const an=num(av),bn=num(bv);
+
+    let result;
+
+    if (an!==null && bn!==null) {
+      result=an-bn;
+    } else {
+      result=String(av??"").localeCompare(
+        String(bv??""),
+        undefined,
+        {numeric:true}
+      );
+    }
+
+    return state.ascending?result:-result;
+  });
+}
+
+function updateTable() {
+  const body=$("tableBody");
+  if (!body) return;
+
+  const rows=sortedTableRows();
+  const pages=Math.max(
+    1,Math.ceil(rows.length/state.pageSize)
+  );
+
+  state.pageNumber=Math.min(state.pageNumber,pages);
+
+  const start=(state.pageNumber-1)*state.pageSize;
+  const visible=rows.slice(start,start+state.pageSize);
+
+  body.innerHTML=visible.length
+    ? visible.map(row=>`
+      <tr>
+        ${state.tableColumns.map(col=>{
+          const value=col.format
+            ? col.format(row[col.key])
+            : row[col.key];
+
+          return col.clickable
+            ? `<td><button class="row-link"
+                data-row-detail="${esc(row[col.key])}">
+                ${esc(value)}
+              </button></td>`
+            : `<td>${esc(value)}</td>`;
+        }).join("")}
+      </tr>
+    `).join("")
+    : `<tr><td colspan="${state.tableColumns.length}">
+        No matching records.
+      </td></tr>`;
+
+  $("tableCount").textContent=
+    `${fmt(rows.length)} matching records`;
+
+  $("pageInfo").textContent=
+    `Page ${state.pageNumber} of ${pages}`;
+
+  $("prevPage").disabled=state.pageNumber===1;
+  $("nextPage").disabled=state.pageNumber===pages;
+
+  document.querySelectorAll("[data-row-detail]")
+    .forEach(button=>{
+      button.addEventListener("click",()=>{
+        openDetail(button.dataset.rowDetail);
+      });
+    });
+}
+
+function bindTable() {
+  const search=$("tableSearch");
+  if (!search) return;
+
+  search.addEventListener("input",event=>{
+    state.search=event.target.value;
+    state.pageNumber=1;
+    updateTable();
+  });
+
+  document.querySelectorAll("[data-col]")
+    .forEach(header=>{
+      const sort=()=>{
+        const col=state.tableColumns[
+          Number(header.dataset.col)
+        ];
+
+        if (state.sortKey===col.key) {
+          state.ascending=!state.ascending;
+        } else {
+          state.sortKey=col.key;
+          state.ascending=true;
+        }
+
+        updateTable();
+      };
+
+      header.addEventListener("click",sort);
+      header.addEventListener("keydown",event=>{
+        if (event.key==="Enter" || event.key===" ") {
+          event.preventDefault();
+          sort();
+        }
+      });
+    });
+
+  $("prevPage").addEventListener("click",()=>{
+    state.pageNumber--;
+    updateTable();
+  });
+
+  $("nextPage").addEventListener("click",()=>{
+    state.pageNumber++;
+    updateTable();
+  });
+
+  updateTable();
+}
+
+// ========================================================
+// 9. DETAIL DRILL-DOWN
+// ========================================================
+
+function openDetail(id) {
+  state.detail=String(id);
+  render();
+}
+
+function detailHTML(rows,key) {
+  if (!state.detail) return "";
+
+  const row=rows.find(
+    item=>String(item[key])===state.detail
+  );
+
+  if (!row) return "";
+
+  const vol=volumeField(rows);
+
+  const entries=Object.entries(row).slice(0,12);
+
+  return `
+    <div class="detail-box">
+      <h3>Record details · ${esc(state.detail)}</h3>
+      <p>Values below are read directly from the selected Gold record.</p>
+      <div class="file-grid">
+        ${entries.map(([name,value])=>`
+          <div class="file-card">
+            <strong>${esc(name)}</strong>
+            <small>${esc(value===null?"NULL":value)}</small>
+          </div>
+        `).join("")}
+      </div>
+      <button class="btn" id="closeDetail"
+        style="margin-top:12px">Close details</button>
+    </div>
+  `;
+}
+
+function bindCloseDetail() {
+  $("closeDetail")?.addEventListener("click",()=>{
+    state.detail=null;
+    render();
+  });
+}
+
+// ========================================================
+// 10. OVERVIEW
+// ========================================================
+
+function overview() {
+  const overall=db.overall_kpis[0]||{};
+  const yearRowsSelected=currentYearRows();
+  const monthRowsSelected=currentMonthlyRows();
+
+  const summary=state.year==="all"
+    ? overall
+    : yearRowsSelected[0]||{};
+
+  const monthVol=volumeField(monthRowsSelected);
+  const yearVol=volumeField(yearRows());
+
+  const trainRows=allTrainRows();
+  const stationRows=allStationRows();
+
+  const trainVol=volumeField(trainRows);
+  const stationVol=volumeField(stationRows);
+
+  const peak=monthVol
+    ? rank(monthRowsSelected,monthVol)[0]
+    : null;
+
+  const rankedTrains=trainVol
+    ? rank(trainRows,trainVol)
+    : [];
+
+  const rankedStations=stationVol
+    ? rank(stationRows,stationVol)
+    : [];
+
+  const totalTrainVolume=trainVol
+    ? sum(trainRows,trainVol)
+    : null;
+
+  const topTrainVolume=trainVol
+    ? sum(rankedTrains.slice(0,10),trainVol)
+    : null;
+
+  const trainShare=share(
+    topTrainVolume,totalTrainVolume
+  );
+
+  const cards={
+    observations:kpiCard(
+      "Movement Observations",
+      fmt(summary.total_observations),
+      state.year==="all"?"All-year Gold summary":"Selected year",
+      "▤",
+      "Count supplied by the Gold summary.",
+      "observations"
+    ),
+    trains:kpiCard(
+      "Train Services",
+      fmt(summary.total_trains),
+      "Distinct trains where supplied",
+      "🚆",
+      "Distinct train count supplied by Gold.",
+      "trains"
+    ),
+    stations:kpiCard(
+      "Stations Covered",
+      fmt(summary.total_stations),
+      "Distinct stations where supplied",
+      "⌖",
+      "Distinct station count supplied by Gold.",
+      "stations"
+    ),
+    months:kpiCard(
+      "Months Covered",
+      fmt(monthRowsSelected.length),
+      "Monthly Gold groups",
+      "▦",
+      "Number of monthly rows in the selected period.",
+      "months"
+    )
+  };
+
+  const visibleCards=state.kpiOrder
+    .filter(id=>!state.hiddenKpis.includes(id))
+    .map(id=>cards[id])
+    .join("");
+
+  let yoy=null;
+  const selectedYear=yearRows().find(row=>
+    String(row.journey_year)===state.year
+  );
+
+  if (selectedYear && yearVol) {
+    const previous=yearRows().find(row=>
+      Number(row.journey_year)===Number(state.year)-1
+    );
+
+    const current=num(selectedYear[yearVol]);
+    const before=previous?num(previous[yearVol]):null;
+
+    if (current!==null && before!==null && before!==0) {
+      yoy=(current-before)/before*100;
+    }
+  }
+
+  $("content").innerHTML=`
+    <div class="kpis">
+      ${visibleCards||`
+        <div class="empty" style="grid-column:1/-1">
+          All KPI cards are hidden. Use Customize Overview to show them.
+        </div>
+      `}
+    </div>
+
+    ${kpiSettingsHTML()}
+
+    <div class="insights">
+      ${insight(
+        "Peak Activity Month",
+        peak?peak.year_month:"—",
+        peak&&monthVol
+          ? fmt(peak[monthVol])+" observations"
+          : "No monthly volume available"
+      )}
+      ${insight(
+        "Year-over-Year Change",
+        yoy===null?"—":(yoy>0?"+":"")+fmt(yoy)+"%",
+        state.year==="all"
+          ?"Select a year to compare"
+          :"Compared with the preceding year"
+      )}
+      ${insight(
+        "Top 10 Train Concentration",
+        pct(trainShare),
+        "Share of summed train-group observations"
+      )}
+    </div>
+
+    <div class="two">
+      ${panel(
+        "Monthly Activity",
+        "Movement observations by month",
+        chartBox("monthlyChart")
+      )}
+      ${panel(
+        "Yearly Activity",
+        "Movement observations by year",
+        chartBox("yearlyChart")
+      )}
+      ${panel(
+        "Busiest Stations",
+        "Click a bar to inspect station records",
+        chartBox("stationChart",true),
+        topSelect()
+      )}
+      ${panel(
+        "Train Ranking",
+        "Click a bar to inspect train records",
+        chartBox("trainChart",true)
+      )}
+    </div>
+
+    <div class="note">
+      Monthly and yearly charts use the selected year
+      filter. Train and station rankings use all-year
+      Gold groupings because the six required files
+      do not establish year-specific train or station
+      rankings. Concentration uses exported group totals.
+    </div>
+  `;
+
+  if (monthVol) {
+    drawChart(
+      "monthlyChart",
+      [...monthRowsSelected].sort((a,b)=>
+        String(a.year_month).localeCompare(String(b.year_month))
+      ),
+      "year_month",monthVol,
+      {line:true}
+    );
+  }
+
+  if (yearVol) {
+    drawChart(
+      "yearlyChart",
+      [...yearRows()].sort((a,b)=>
+        Number(a.journey_year)-Number(b.journey_year)
+      ),
+      "journey_year",yearVol
+    );
+  }
+
+  if (stationVol) {
+    drawChart(
+      "stationChart",
+      [...rankedStations.slice(0,state.topN)].reverse(),
+      "station_code",stationVol,
+      {
+        horizontal:true,
+        onClick:row=>{
+          state.page="stations";
+          state.detail=String(row.station_code);
+          render();
+        }
+      }
+    );
+  }
+
+  if (trainVol) {
+    drawChart(
+      "trainChart",
+      [...rankedTrains.slice(0,state.topN)].reverse(),
+      "train_no",trainVol,
+      {
+        horizontal:true,
+        onClick:row=>{
+          state.page="trains";
+          state.detail=String(row.train_no);
+          render();
+        }
+      }
+    );
+  }
+
+  bindTopSelect();
+  bindKpiSettings();
+}
+
+// ========================================================
+// 11. TRAIN ANALYTICS
+// ========================================================
+
+function trainsPage() {
+  const rows=currentTrainRows();
+  const vol=volumeField(rows);
+  const delay=field(rows,[
+    "avg_arrival_delay_min",
+    "avg_arrival_delay"
+  ]);
+
+  const ranked=vol?rank(rows,vol):rows;
+  const top=ranked.slice(0,state.topN);
+  const totalVol=vol?sum(rows,vol):null;
+
+  const shareRows=top.map(row=>({
+    ...row,
+    _share:share(num(row[vol]),totalVol)
+  }));
+
+  const columns=[
+    {label:"Train Number",key:"train_no",clickable:true},
+    {label:"Train Name",key:"train_name"},
+    {
+      label:"Observations",
+      key:vol||"total_observations",
+      format:fmt
+    },
+    {
+      label:"Arrival Delay (min)",
+      key:delay||"avg_arrival_delay_min",
+      format:fmt
+    },
+    {
+      label:"Departure Delay (min)",
+      key:"avg_departure_delay_min",
+      format:fmt
+    }
+  ].filter(col=>
+    col.clickable ||
+    rows.some(row=>col.key in row) ||
+    col.key==="total_observations"
+  );
+
+  setupTable(ranked,columns,"train_performance");
+
+  $("content").innerHTML=`
+    <div class="kpis">
+      ${kpiCard(
+        "Train Groups",fmt(rows.length),
+        "Matching Gold groups","🚆",
+        "Number of train-level rows.","observations"
+      )}
+      ${kpiCard(
+        "Observations",fmt(totalVol),
+        "Sum of train-group values","▤",
+        "Sum of exported train observation counts.","trains"
+      )}
+      ${kpiCard(
+        "Highest Train Volume",
+        fmt(vol?ranked[0]?.[vol]:null),
+        "Largest group observation count","↗",
+        "Largest train group in this export.","stations"
+      )}
+      ${kpiCard(
+        "Measured Delay Groups",
+        delay?fmt(countAvailable(rows,delay)):"—",
+        "Non-null arrival delay","◷",
+        "Groups with a numeric arrival delay.","months"
+      )}
+    </div>
+
+    <div class="two">
+      ${panel(
+        "Train Volume Ranking",
+        "Click a bar to inspect its record",
+        chartBox("trainRanking",true),
+        topSelect()
+      )}
+      ${panel(
+        "Train Observation Share",
+        "Share of selected train-group total",
+        chartBox("trainShare",true)
+      )}
+    </div>
+
+    <div id="detailArea">
+      ${detailHTML(rows,"train_no")}
+    </div>
+
+    ${panel(
+      "Train Performance Records",
+      "Search, sort and export the visible dataset",
+      tableHTML()
+    )}
+
+    <div class="note">
+      Train analytics uses the all-year train export.
+      A year-specific train comparison is not inferred
+      from data that lacks a train-year aggregation.
+      Missing delay values are shown as unavailable.
+    </div>
+  `;
+
+  if (vol) {
+    drawChart(
+      "trainRanking",
+      [...top].reverse(),
+      "train_no",vol,
+      {
+        horizontal:true,
+        onClick:row=>{
+          state.detail=String(row.train_no);
+          render();
+        }
+      }
+    );
+  }
+
+  drawChart(
+    "trainShare",
+    [...shareRows].reverse(),
+    "train_no","_share",
+    {horizontal:true}
+  );
+
+  bindTopSelect();
+  bindTable();
+  bindCloseDetail();
+}
+
+// ========================================================
+// 12. STATION ANALYTICS
+// ========================================================
+
+function stationsPage() {
+  const rows=allStationRows();
+  const vol=volumeField(rows);
+  const delay=field(rows,[
+    "avg_arrival_delay_min",
+    "avg_arrival_delay"
+  ]);
+
+  const ranked=vol?rank(rows,vol):rows;
+  const top=ranked.slice(0,state.topN);
+  const totalVol=vol?sum(rows,vol):null;
+
+  const shares=top.map(row=>({
+    ...row,
+    _share:share(num(row[vol]),totalVol)
+  }));
+
+  const columns=[
+    {label:"Station Code",key:"station_code",clickable:true},
+    {
+      label:"Observations",
+      key:vol||"total_observations",
+      format:fmt
+    },
+    {label:"Train Count",key:"total_trains",format:fmt},
+    {
+      label:"Arrival Delay (min)",
+      key:delay||"avg_arrival_delay_min",
+      format:fmt
+    },
+    {
+      label:"Verified Arrivals",
+      key:"verified_arrival_count",
+      format:fmt
+    }
+  ].filter(col=>
+    col.clickable ||
+    rows.some(row=>col.key in row) ||
+    col.key==="total_observations"
+  );
+
+  setupTable(ranked,columns,"station_performance");
+
+  $("content").innerHTML=`
+    <div class="kpis">
+      ${kpiCard(
+        "Station Groups",fmt(rows.length),
+        "Station Gold export","⌖",
+        "Number of station-level groups.","observations"
+      )}
+      ${kpiCard(
+        "Group Observations",fmt(totalVol),
+        "Sum of exported groups","▤",
+        "Sum of station-group observations, not necessarily unique movements.","trains"
+      )}
+      ${kpiCard(
+        "Verified Arrivals",
+        rows.some(row=>"verified_arrival_count" in row)
+          ?fmt(sum(rows,"verified_arrival_count")):"—",
+        "As reported by Gold","✓",
+        "Sum of the supplied verified-arrival counts.","stations"
+      )}
+      ${kpiCard(
+        "Measured Delay Groups",
+        delay?fmt(countAvailable(rows,delay)):"—",
+        "Non-null arrival delay","◷",
+        "Station groups with numeric arrival delay.","months"
+      )}
+    </div>
+
+    <div class="two">
+      ${panel(
+        "Busiest Stations",
+        "Click a bar to inspect its record",
+        chartBox("stationRanking",true),
+        topSelect()
+      )}
+      ${panel(
+        "Station Observation Share",
+        "Share of summed station-group observations",
+        chartBox("stationShare",true)
+      )}
+    </div>
+
+    <div id="detailArea">
+      ${detailHTML(rows,"station_code")}
+    </div>
+
+    ${panel(
+      "Station Performance Records",
+      "Search, sort and export station records",
+      tableHTML()
+    )}
+
+    <div class="note">
+      Station-group totals describe the grain of the
+      exported Gold dataset. Do not interpret their sum
+      as unique network movements unless the Gold
+      aggregation has been independently validated.
+    </div>
+  `;
+
+  if (vol) {
+    drawChart(
+      "stationRanking",
+      [...top].reverse(),
+      "station_code",vol,
+      {
+        horizontal:true,
+        onClick:row=>{
+          state.detail=String(row.station_code);
+          render();
+        }
+      }
+    );
+  }
+
+  drawChart(
+    "stationShare",
+    [...shares].reverse(),
+    "station_code","_share",
+    {horizontal:true}
+  );
+
+  bindTopSelect();
+  bindTable();
+  bindCloseDetail();
+}
+
+// ========================================================
+// 13. PIPELINE & QUALITY
+// ========================================================
+
+function qualityPage() {
+  const files=SOURCES.map(name=>{
+    const result=validateSource(name,db[name]||[]);
+    return {
+      name:name+".json",
+      rows:result.rows,
+      valid:result.valid,
+      issues:result.issues
+    };
+  });
+
+  const trainDelay=field(allTrainRows(),[
+    "avg_arrival_delay_min","avg_arrival_delay"
+  ]);
+
+  const stationDelay=field(allStationRows(),[
+    "avg_arrival_delay_min","avg_arrival_delay"
+  ]);
+
+  const recoveryMetric=field(db.station_recovery,[
+    "avg_recovery_min","avg_delay_recovery_min"
+  ]);
+
+  setupTable(
+    files.map(file=>({
+      file:file.name,
+      rows:file.rows,
+      status:file.valid?"Valid structure":"Check required fields"
+    })),
+    [
+      {label:"Gold Export",key:"file"},
+      {label:"Rows",key:"rows",format:fmt},
+      {label:"Schema Status",key:"status"}
+    ],
+    "gold_inventory"
+  );
+
+  $("content").innerHTML=`
+    <div class="kpis">
+      ${kpiCard(
+        "Gold Exports","6 / 6",
+        "Files loaded successfully","✓",
+        "Six required JSON resources were fetched.","observations"
+      )}
+      ${kpiCard(
+        "Train Groups",fmt(allTrainRows().length),
+        "Train-level rows","🚆",
+        "Rows in train_performance.json.","trains"
+      )}
+      ${kpiCard(
+        "Station Groups",fmt(allStationRows().length),
+        "Station-level rows","⌖",
+        "Rows in station_performance.json.","stations"
+      )}
+      ${kpiCard(
+        "Recovery Groups",fmt(db.station_recovery.length),
+        "Recovery export rows","↗",
+        "Rows in station_recovery.json.","months"
+      )}
+    </div>
+
+    ${panel(
+      "Medallion Pipeline Architecture",
+      "Logical data lineage",
+      `
+      <div class="flow">
+        <div class="flow-node">CSV<small>Raw railway logs</small></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Bronze<small>Ingestion</small></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Silver<small>Cleaning & validation</small></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">Gold<small>Aggregations</small></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-node">RailVista<small>JSON dashboard</small></div>
+      </div>
+      `
+    )}
+
+    <div class="two">
+      ${panel(
+        "Gold Schema Validation",
+        "Basic client-side JSON structure checks",
+        `
+        <div class="file-grid">
+          ${files.map(file=>`
+            <div class="file-card">
+              <strong>
+                <span class="${file.valid?"ok":"bad"}">
+                  ${file.valid?"●":"●"}
+                </span>
+                ${esc(file.name)}
+              </strong>
+              <small>${fmt(file.rows)} rows</small>
+              <small>${file.valid?"Structure accepted":"Review required"}</small>
+              ${file.issues.map(issue=>`
+                <small class="bad">${esc(issue)}</small>
+              `).join("")}
+            </div>
+          `).join("")}
+        </div>
+        `
+      )}
+
+      ${panel(
+        "Metric Availability",
+        "Available numeric measurements in Gold",
+        `
+        <div class="insights" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+          ${insight(
+            "Train Delay Groups",
+            trainDelay?fmt(countAvailable(allTrainRows(),trainDelay)):"—",
+            "Numeric arrival-delay values"
+          )}
+          ${insight(
+            "Station Delay Groups",
+            stationDelay?fmt(countAvailable(allStationRows(),stationDelay)):"—",
+            "Numeric arrival-delay values"
+          )}
+          ${insight(
+            "Recovery Groups Measured",
+            recoveryMetric?fmt(countAvailable(db.station_recovery,recoveryMetric)):"—",
+            "Numeric recovery metric values"
+          )}
+          ${insight(
+            "Verified Arrivals",
+            allTrainRows().some(row=>"verified_arrival_count" in row)
+              ?fmt(sum(allTrainRows(),"verified_arrival_count")):"—",
+            "As reported by train Gold export"
+          )}
+        </div>
+        `
+      )}
+    </div>
+
+    <div class="note warn">
+      <b>Important:</b> These are frontend JSON structure
+      checks, not proof of Databricks pipeline correctness.
+      The six Gold exports do not independently prove
+      Bronze-to-Silver reconciliation, quarantine counts,
+      duplicate removal or pipeline execution success.
+    </div>
+
+    ${panel(
+      "Gold Export Inventory",
+      "Search and inspect the six loaded datasets",
+      tableHTML()
+    )}
+  `;
+
+  bindTable();
+}
+
+// ========================================================
+// 14. YEAR COMPARISON
+// ========================================================
+
+function comparisonPage() {
+  const rows=yearRows().filter(row=>
+    num(row.journey_year)!==null
+  ).sort((a,b)=>
+    Number(a.journey_year)-Number(b.journey_year)
+  );
+
+  const years=rows.map(row=>String(row.journey_year));
+
+  if (!state.yearA && years.length) {
+    state.yearA=years[Math.max(0,years.length-2)];
+  }
+
+  if (!state.yearB && years.length) {
+    state.yearB=years[years.length-1];
+  }
+
+  const a=rows.find(row=>String(row.journey_year)===state.yearA);
+  const b=rows.find(row=>String(row.journey_year)===state.yearB);
+
+  const metrics=[
+    {
+      label:"Movement Observations",
+      key:volumeField(rows)
+    },
+    {
+      label:"Train Services",
+      key:field(rows,["total_trains"])
+    },
+    {
+      label:"Stations Covered",
+      key:field(rows,["total_stations"])
+    }
+  ].filter(metric=>metric.key);
+
+  const comparisons=metrics.map(metric=>{
+    const av=a?num(a[metric.key]):null;
+    const bv=b?num(b[metric.key]):null;
+
+    const change=av!==null && bv!==null && av!==0
+      ? (bv-av)/av*100
+      : null;
+
+    return {
+      ...metric,
+      av,bv,change
+    };
+  });
+
+  setupTable(
+    comparisons.map(item=>({
+      metric:item.label,
+      year_a:item.av,
+      year_b:item.bv,
+      change:item.change
+    })),
+    [
+      {label:"Metric",key:"metric"},
+      {label:state.yearA||"Year A",key:"year_a",format:fmt},
+      {label:state.yearB||"Year B",key:"year_b",format:fmt},
+      {label:"Change (%)",key:"change",format:pct}
+    ],
+    "year_comparison"
+  );
+
+  $("content").innerHTML=`
+    ${panel(
+      "Select Comparison Years",
+      "Choose two years available in yearly_performance.json",
+      `
+      <div class="toolbar" style="margin:0;padding:0;border:0">
+        <label class="field">
+          FIRST YEAR
+          <select id="compareA" class="small-select">
+            ${years.map(year=>`
+              <option value="${esc(year)}"
+                ${year===state.yearA?"selected":""}>
+                ${esc(year)}
+              </option>
+            `).join("")}
+          </select>
+        </label>
+        <label class="field">
+          SECOND YEAR
+          <select id="compareB" class="small-select">
+            ${years.map(year=>`
+              <option value="${esc(year)}"
+                ${year===state.yearB?"selected":""}>
+                ${esc(year)}
+              </option>
+            `).join("")}
+          </select>
+        </label>
+      </div>
+      `
+    )}
+
+    ${comparisons.length?`
+      <div class="insights">
+        ${comparisons.map(item=>insight(
+          item.label,
+          item.change===null?"—":
+            (item.change>0?"+":"")+fmt(item.change)+"%",
+          item.av===null || item.bv===null
+            ?"Metric unavailable for one or both years"
+            :`${fmt(item.av)} → ${fmt(item.bv)}`
+        )).join("")}
+      </div>
+
+      ${panel(
+        "Year Comparison",
+        "Actual values from yearly_performance.json",
+        chartBox("comparisonChart")
+      )}
+
+      ${panel(
+        "Comparison Details",
+        "Exact values and percentage changes",
+        tableHTML()
+      )}
+    `:`
+      <div class="empty">
+        <strong>Yearly comparison unavailable.</strong><br>
+        The yearly export does not contain the expected
+        numeric fields for comparison.
+      </div>
+    `}
+
+    <div class="note">
+      Percentage change is calculated as
+      (second year − first year) ÷ first year × 100.
+      It is not calculated when the first value is
+      missing or zero. Only fields present in the
+      yearly Gold export are compared.
+    </div>
+  `;
+
+  $("compareA")?.addEventListener("change",event=>{
+    state.yearA=event.target.value;
+    render();
+  });
+
+  $("compareB")?.addEventListener("change",event=>{
+    state.yearB=event.target.value;
+    render();
+  });
+
+  if (comparisons.length) {
+    const chartRows=comparisons.map(item=>({
+      metric:item.label,
+      [state.yearA]:item.av,
+      [state.yearB]:item.bv
+    }));
+
+    drawComparisonChart(
+      "comparisonChart",
+      chartRows,
+      state.yearA,
+      state.yearB
+    );
+
+    bindTable();
+  }
+}
+
+function drawComparisonChart(id,rows,keyA,keyB) {
+  const node=$(id);
+  if (!node || !window.echarts) return;
+
+  const usable=rows.filter(row=>
+    num(row[keyA])!==null ||
+    num(row[keyB])!==null
+  );
+
+  if (!usable.length) {
+    node.innerHTML='<div class="empty">No comparison values available.</div>';
+    return;
+  }
+
+  const dark=!document.body.classList.contains("light");
+  const chart=echarts.init(node);
+  charts.push(chart);
+
+  chart.setOption({
+    color:["#e4a64b","#8c9ba8"],
+    tooltip:{trigger:"axis"},
+    legend:{
+      textStyle:{color:dark?"#d6d6d2":"#555"}
+    },
+    grid:{left:45,right:20,bottom:45,top:45,containLabel:true},
+    xAxis:{
+      type:"category",
+      data:usable.map(row=>row.metric),
+      axisLabel:{color:dark?"#a3a8b0":"#737983"}
+    },
+    yAxis:{
+      type:"value",
+      axisLabel:{color:dark?"#a3a8b0":"#737983"}
+    },
+    series:[
+      {
+        name:keyA,
+        type:"bar",
+        data:usable.map(row=>row[keyA])
+      },
+      {
+        name:keyB,
+        type:"bar",
+        data:usable.map(row=>row[keyB])
+      }
+    ]
+  });
+}
+
+// ========================================================
+// 15. EXPORT CENTER
+// ========================================================
+
+function downloadBlob(filename,content,type) {
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+
+  link.href=url;
+  link.download=filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function csvCell(value) {
+  const text=String(value??"");
+  return /[",\n\r]/.test(text)
+    ?'"'+text.replace(/"/g,'""')+'"'
+    :text;
+}
+
+function exportRowsCSV(rows,columns,filename) {
+  if (!rows.length) {
+    alert("No records available to export.");
+    return;
+  }
+
+  const csv=[
+    columns.map(col=>csvCell(col.label)).join(","),
+    ...rows.map(row=>
+      columns.map(col=>csvCell(row[col.key])).join(",")
+    )
+  ].join("\r\n");
+
+  downloadBlob(
+    filename,
+    "\ufeff"+csv,
+    "text/csv;charset=utf-8"
+  );
+}
+
+function exportCurrentTable() {
+  exportRowsCSV(
+    sortedTableRows(),
+    state.tableColumns,
+    `railvista_${state.tableSource}.csv`
+  );
+}
+
+function exportsPage() {
+  $("content").innerHTML=`
+    ${panel(
+      "Export Center",
+      "Download the original Gold datasets or the currently filtered table",
+      `
+      <div class="export-row">
+        <div>
+          <strong>Current filtered table</strong>
+          <small>Exports current search and sort results.</small>
+        </div>
+        <button class="btn primary" id="exportCurrent">
+          Export CSV
+        </button>
+      </div>
+
+      ${SOURCES.map(name=>`
+        <div class="export-row">
+          <div>
+            <strong>${esc(name)}.json</strong>
+            <small>${fmt(db[name].length)} rows · Original Gold export</small>
+          </div>
+          <div style="display:flex;gap:7px">
+            <button class="btn"
+              data-export-json="${esc(name)}">
+              JSON
+            </button>
+            <button class="btn"
+              data-export-source-csv="${esc(name)}">
+              CSV
+            </button>
+          </div>
+        </div>
+      `).join("")}
+      `
+    )}
+
+    <div class="note">
+      JSON downloads preserve the source data structure.
+      CSV downloads flatten the top-level object fields.
+      Nested object values, if present, are serialized
+      as JSON strings within their CSV cells.
+    </div>
+  `;
+
+  $("exportCurrent").addEventListener(
+    "click",exportCurrentTable
+  );
+
+  document.querySelectorAll("[data-export-json]")
+    .forEach(button=>{
+      button.addEventListener("click",()=>{
+        const name=button.dataset.exportJson;
+        downloadBlob(
+          `railvista_${name}.json`,
+          JSON.stringify(db[name],null,2),
+          "application/json"
+        );
+      });
+    });
+
+  document.querySelectorAll("[data-export-source-csv]")
+    .forEach(button=>{
+      button.addEventListener("click",()=>{
+        const name=button.dataset.exportSourceCsv;
+        const rows=db[name];
+
+        const keys=[...new Set(
+          rows.flatMap(row=>Object.keys(row))
+        )];
+
+        exportRowsCSV(
+          rows,
+          keys.map(key=>({key,label:key})),
+          `railvista_${name}.csv`
+        );
+      });
+    });
+}
+
+// ========================================================
+// 16. GLOBAL SEARCH
+// ========================================================
+
+function searchIndex(query) {
+  const q=query.toLowerCase().trim();
+  if (!q) return [];
+
+  const matches=[];
+
+  allTrainRows().forEach(row=>{
+    const no=String(row.train_no??"");
+    const name=String(row.train_name??"");
+
+    if (
+      no.toLowerCase().includes(q) ||
+      name.toLowerCase().includes(q)
+    ) {
+      matches.push({
+        type:"Train",
+        id:no,
+        label:name?`${no} · ${name}`:no,
+        page:"trains"
+      });
+    }
+  });
+
+  allStationRows().forEach(row=>{
+    const code=String(row.station_code??"");
+
+    if (code.toLowerCase().includes(q)) {
+      matches.push({
+        type:"Station",
+        id:code,
+        label:code,
+        page:"stations"
+      });
+    }
+  });
+
+  return matches.slice(0,12);
+}
+
+function bindGlobalSearch() {
+  const input=$("globalSearch");
+  const results=$("searchResults");
+
+  input.addEventListener("input",()=>{
+    const matches=searchIndex(input.value);
+
+    if (!input.value.trim() || !matches.length) {
+      results.innerHTML=input.value.trim()
+        ?'<div class="empty">No matching train or station.</div>'
+        :"";
+      results.hidden=!input.value.trim();
+      return;
+    }
+
+    results.innerHTML=matches.map(item=>`
+      <button class="search-result"
+        data-search-page="${item.page}"
+        data-search-id="${esc(item.id)}">
+        ${esc(item.label)}
+        <small>${esc(item.type)}</small>
+      </button>
+    `).join("");
+
+    results.hidden=false;
+
+    results.querySelectorAll("[data-search-page]")
+      .forEach(button=>{
+        button.addEventListener("click",()=>{
+          state.page=button.dataset.searchPage;
+          state.detail=button.dataset.searchId;
+          state.train=state.page==="trains"
+            ?button.dataset.searchId
+            :"all";
+
+          input.value="";
+          results.hidden=true;
+          render();
+        });
+      });
+  });
+
+  document.addEventListener("click",event=>{
+    if (!event.target.closest(".search-wrap")) {
+      results.hidden=true;
+    }
+  });
+
+  input.addEventListener("keydown",event=>{
+    if (event.key==="Escape") {
+      results.hidden=true;
+      input.blur();
+    }
+  });
+}
+
+// ========================================================
+// 17. THEME SWITCH
+// ========================================================
+
+function applyTheme() {
+  document.body.classList.toggle(
+    "light",state.theme==="light"
+  );
+
+  $("themeBtn").textContent=
+    state.theme==="light"?"☾":"☼";
+
+  $("themeBtn").title=
+    state.theme==="light"
+      ?"Switch to dark theme"
+      :"Switch to light theme";
+
+  $("themeBtn").setAttribute(
+    "aria-label",$("themeBtn").title
+  );
+}
+
+$("themeBtn").addEventListener("click",()=>{
+  state.theme=state.theme==="dark"?"light":"dark";
+  storageSet("railvista_theme",state.theme);
+  applyTheme();
+  render();
+});
+
+// ========================================================
+// 18. FILTERS AND NAVIGATION
+// ========================================================
+
+function populateFilters() {
+  const years=[...new Set(
+    yearRows().map(row=>row.journey_year)
+      .filter(value=>value!==null && value!==undefined)
+  )].sort((a,b)=>Number(a)-Number(b));
+
+  $("yearFilter").innerHTML=
+    '<option value="all">All years</option>'+
+    years.map(year=>`
+      <option value="${esc(year)}">${esc(year)}</option>
+    `).join("");
+
+  const trainMap=new Map();
+
+  allTrainRows().forEach(row=>{
+    if (row.train_no!==null && row.train_no!==undefined) {
+      trainMap.set(
+        String(row.train_no),
+        String(row.train_name||row.train_no)
+      );
+    }
+  });
+
+  $("trainFilter").innerHTML=
+    '<option value="all">All trains</option>'+
+    [...trainMap.entries()].map(([no,name])=>`
+      <option value="${esc(no)}">
+        ${esc(name)} (${esc(no)})
+      </option>
+    `).join("");
+
+  if (!years.map(String).includes(state.year)) {
+    state.year="all";
+  }
+
+  if (!trainMap.has(state.train)) {
+    state.train="all";
+  }
+
+  $("yearFilter").value=state.year;
+  $("trainFilter").value=state.train;
+}
+
+function bindNavigation() {
+  document.querySelectorAll("[data-page]")
+    .forEach(button=>{
+      button.addEventListener("click",()=>{
+        state.page=button.dataset.page;
+        state.detail=null;
+        render();
+        window.scrollTo({top:0,behavior:"smooth"});
+      });
+    });
+}
+
+function bindFilters() {
+  $("yearFilter").addEventListener("change",event=>{
+    state.year=event.target.value;
+    render();
+  });
+
+  $("trainFilter").addEventListener("change",event=>{
+    state.train=event.target.value;
+    state.detail=null;
+    render();
+  });
+
+  $("resetBtn").addEventListener("click",()=>{
+    state.year="all";
+    state.train="all";
+    state.detail=null;
+    render();
+  });
+
+  $("saveFiltersBtn").addEventListener(
+    "click",saveFilters
+  );
+}
+
+// ========================================================
+// 19. MAIN RENDERER
+// ========================================================
+
+function render() {
+  resetCharts();
+
+  const pageInfo={
+    overview:[
+      "Operations Overview",
+      "Historical activity and network coverage"
+    ],
+    trains:[
+      "Train Analytics",
+      "Explore train-level Gold performance"
+    ],
+    stations:[
+      "Station Analytics",
+      "Station activity and operational coverage"
+    ],
+    quality:[
+      "Pipeline & Data Quality",
+      "Gold export structure and measurement availability"
+    ],
+    compare:[
+      "Year Comparison",
+      "Compare actual annual Gold metrics"
+    ],
+    exports:[
+      "Export Center",
+      "Download Gold datasets and filtered analysis"
+    ]
+  };
+
+  $("pageTitle").textContent=pageInfo[state.page][0];
+  $("pageSubtitle").textContent=pageInfo[state.page][1];
+
+  document.querySelectorAll("[data-page]")
+    .forEach(button=>{
+      button.classList.toggle(
+        "active",
+        button.dataset.page===state.page
+      );
+    });
+
+  $("yearBox").hidden=state.page!=="overview";
+  $("trainBox").hidden=state.page!=="trains";
+
+  $("resetBtn").hidden=
+    !["overview","trains"].includes(state.page);
+
+  $("saveFiltersBtn").hidden=
+    !["overview","trains"].includes(state.page);
+
+  $("yearFilter").value=state.year;
+  $("trainFilter").value=state.train;
+
+  const pages={
+    overview,
+    trains:trainsPage,
+    stations:stationsPage,
+    quality:qualityPage,
+    compare:comparisonPage,
+    exports:exportsPage
+  };
+
+  $("content").setAttribute("aria-busy","false");
+  pages[state.page]();
+}
+
+// ========================================================
+// 20. LOAD SIX GOLD JSON FILES
+// ========================================================
+
+async function loadData() {
+  $("content").setAttribute("aria-busy","true");
+
+  try {
+    await Promise.all(
+      SOURCES.map(async name=>{
+        const response=await fetch(
+          `data/${name}.json`,
+          {cache:"no-store"}
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `${name}.json returned HTTP ${response.status}`
+          );
+        }
+
+        const data=await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error(
+            `${name}.json must have an array at its root.`
+          );
+        }
+
+        db[name]=data;
+      })
+    );
+
+    loadTimestamp=new Date();
+
+    validateAll();
+    populateFilters();
+
+    $("status").textContent=
+      sourceWarnings.length
+        ?`● 6 FILES LOADED · ${sourceWarnings.length} WARNINGS`
+        :"● 6 / 6 GOLD FILES LOADED";
+
+    render();
+
+  } catch(error) {
+    console.error("RailVista loading error:",error);
+
+    $("status").textContent="Data loading failed";
+    $("content").setAttribute("aria-busy","false");
+
+    $("content").innerHTML=`
+      <div class="empty">
+        <strong>Unable to load Gold data.</strong>
+        <p>${esc(error.message)}</p>
+        <p>Check that the six JSON files exist inside the data/ folder.</p>
+        <button class="btn primary" id="retryLoad">Retry loading</button>
+      </div>
+    `;
+
+    $("retryLoad").addEventListener("click",loadData);
+  }
+}
+
+// ========================================================
+// 21. START APPLICATION
+// ========================================================
+
+loadPreferences();
+applyTheme();
+bindNavigation();
+bindFilters();
+bindGlobalSearch();
+loadData();
+
+window.addEventListener("resize",()=>{
+  charts.forEach(chart=>{
+    try {chart.resize()} catch {}
+  });
+});
+</script>
+</body>
+</html>
