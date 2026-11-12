@@ -1,4 +1,4 @@
-# RailPulse India — Dashboard (current Gold exports)
+# RailVista India — Dashboard (current Gold exports)
 
 Preserves the Routey-inspired charcoal dashboard and historical railway map. **No old Gold data is bundled.**
 
